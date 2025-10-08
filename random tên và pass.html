@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Random Tên & Password</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.04)}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:linear-gradient(180deg,#021428 0%, #071226 100%);color:#e6eef6}
+    .wrap{max-width:920px;margin:36px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+    .card{background:var(--card);padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    input[type=number],select{width:100%;padding:8px 10px;border-radius:8px;border:none;background:var(--glass);color:inherit}
+    .row{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);border:none;color:#042027;padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+    textarea{width:100%;height:50px;padding:10px;border-radius:8px;border:none;background:transparent;color:inherit}
+    .small{font-size:13px;color:var(--muted)}
+    .opts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:13px}
+    .copybtn{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Web Random Tên & Password</h1>
+        <p class="lead">Sinh nhanh danh sách tên và mật khẩu — dễ dùng, copy 1 click.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Tên -->
+      <div class="card">
+        <strong>Random Tên</strong>
+        <p class="small">Sinh tên giả ngẫu nhiên (việt hóa). Chọn số lượng và kiểu.</p>
+        <div style="margin-top:12px">
+          <label>Số lượng tên</label>
+          <input id="nameCount" type="number" min="1" max="200" value="10" />
+        </div>
+        <div style="margin-top:10px">
+          <label>Kiểu tên</label>
+          <select id="nameStyle">
+            <option value="ho_ten">Họ + Tên (ví dụ: Nguyễn Văn An)</option>
+            <option value="ten">Chỉ tên (Ví dụ: An)</option>
+            <option value="ho_ten_ngan">Họ + 1 tên (Ví dụ: Trần Minh)</option>
+          </select>
+        </div>
+        <div style="margin-top:12px" class="row">
+          <button id="genNames">Sinh tên</button>
+          <button class="copybtn" id="copyNames">Copy</button>
+        </div>
+        <div style="margin-top:12px">
+          <textarea id="namesOut" readonly placeholder="Danh sách tên sẽ xuất hiện ở đây"></textarea>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="card">
+        <strong>Random Password</strong>
+        <p class="small">Sinh mật khẩu mạnh với tùy chọn: chữ hoa, chữ số, ký tự đặc biệt.</p>
+
+        <div style="margin-top:12px">
+          <label>Độ dài mật khẩu</label>
+          <input id="pwLen" type="number" min="4" max="64" value="12" />
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Tuỳ chọn</label>
+          <div class="opts">
+            <label class="chip"><input id="upper" type="checkbox" checked /> Chữ hoa</label>
+            <label class="chip"><input id="numbers" type="checkbox" checked /> Số</label>
+            <label class="chip"><input id="symbols" type="checkbox" checked /> Ký tự đặc biệt</label>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="row">
+          <button id="genPw">Sinh mật khẩu</button>
+          <button class="copybtn" id="copyPw">Copy</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <textarea id="pwOut" readonly placeholder="Mật khẩu sẽ xuất hiện ở đây"></textarea>
+        </div>
+
+        <div style="margin-top:12px" class="small">Mẹo: dùng mật khẩu dài ≥12 ký tự, kết hợp chữ hoa, số và ký tự đặc biệt.</div>
+      </div>
+    </div>
+
+    <footer>
+      <div>Muốn xuất thành file CSV? Thêm tính năng nữa? Nói mình biết nhé.</div>
+    </footer>
+  </div>
+
+  <script>
+    const ho = ['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Võ','Đặng','Bùi','Đỗ','Hồ','Lý','Dương','Lâm'];
+    const dem = ['Văn','Thị','Minh','Quang','Thanh','Tuấn','Hữu','Thu','Ngọc','Trọng','Thùy','Hà','Đức','Công','Kim'];
+    const ten = ['An','Bình','Cường','Dương','Hà','Hạnh','Hảo','Hải','Hiếu','Hùng','Linh','Mai','Nam','Nga','Quỳnh','Sơn','Tâm','Thảo','Trang','Tuấn'];
+
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nums = '0123456789';
+    const syms = '!@#$%^&*()-_=+[]{};:,.<>?'
+
+    function randInt(max){return Math.floor(Math.random()*max)}
+
+    function genNames(){
+      const count = Math.max(1, Math.min(200, parseInt(document.getElementById('nameCount').value)||10));
+      const style = document.getElementById('nameStyle').value;
+      const out = [];
+      for(let i=0;i<count;i++){
+        const h = ho[randInt(ho.length)];
+        const d = dem[randInt(dem.length)];
+        const t = ten[randInt(ten.length)];
+        if(style==='ten') out.push(t);
+        else if(style==='ho_ten_ngan') out.push(h + ' ' + t);
+        else out.push(h + ' ' + d + ' ' + t);
+      }
+      document.getElementById('namesOut').value = out.join('\n');
+    }
+
+    function genPassword(){
+      const length = Math.max(4, Math.min(64, parseInt(document.getElementById('pwLen').value)||12));
+      let pool = lower;
+      if(document.getElementById('upper').checked) pool += upper;
+      if(document.getElementById('numbers').checked) pool += nums;
+      if(document.getElementById('symbols').checked) pool += syms;
+      if(pool.length===0){document.getElementById('pwOut').value = '' ; return}
+
+      const chars = [];
+      if(document.getElementById('upper').checked) chars.push(upper[randInt(upper.length)]);
+      if(document.getElementById('numbers').checked) chars.push(nums[randInt(nums.length)]);
+      if(document.getElementById('symbols').checked) chars.push(syms[randInt(syms.length)]);
+      for(let i=chars.length;i<length;i++) chars.push(pool[randInt(pool.length)]);
+      for(let i=chars.length-1;i>0;i--){const j=randInt(i+1);[chars[i],chars[j]]=[chars[j],chars[i]]}
+      document.getElementById('pwOut').value = chars.join('');
+    }
+
+    async function copyText(id){
+      const txt = document.getElementById(id).value;
+      if(!txt) return alert('Chưa có nội dung để copy');
+      try{await navigator.clipboard.writeText(txt);alert('Đã copy!')}
+      catch(e){
+        const ta = document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Đã copy!')
+      }
+    }
+
+    document.getElementById('genNames').addEventListener('click',genNames);
+    document.getElementById('genPw').addEventListener('click',genPassword);
+    document.getElementById('copyNames').addEventListener('click',()=>copyText('namesOut'));
+    document.getElementById('copyPw').addEventListener('click',()=>copyText('pwOut'));
+
+    genNames();genPassword();
+  </script>
+</body>
+</html>
