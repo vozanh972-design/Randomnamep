@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Random Pass - iOS Style</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+      background: #f2f2f7;
+      color: #000;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      padding: 18px 20px;
+      border-radius: 22px;
+      margin-top: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+    .label {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #6e6e73;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid #d1d1d6;
+      background: #f2f2f7;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .value {
+      background: #f2f2f7;
+      padding: 12px 14px;
+      font-size: 16px;
+      border-radius: 14px;
+      font-weight: 600;
+    }
+    button {
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    button:active {
+      opacity: 0.6;
+    }
+    .btn-primary {
+      background: #007aff;
+      color: white;
+    }
+    .btn-secondary {
+      background: #e5e5ea;
+      color: #000;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr 120px; gap: 12px; }
+    .toplink { text-align:center; margin:10px 0; font-size:15px; }
+    .toplink a { color:#007aff; text-decoration:none; font-weight:600; }
+    footer { text-align:center; margin-top:18px; color:#6e6e73; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toplink">
+      📧 <a href="https://tempmail.vn/" target="_blank">Mail 1</a> | <a href="https://tmail.mekongmmo.com/" target="_blank">Mail 2</a>
+    </div>
+    <div class="toplink">
+      📸 <a href="https://www.instagram.com/" target="_blank">Instagram</a> | <a href="https://www.facebook.com/reg" target="_blank">Facebook</a>
+    </div>
+
+    <h1>Trình tạo ngẫu nhiên — iOS Style</h1>
+
+    <div class="card">
+      <div class="label">Mật khẩu cố định</div>
+      <div class="grid">
+        <input id="passInput" type="text" value="theanh39" />
+        <button id="copyPass" class="btn-primary">Sao chép</button>
+      </div>
+
+      <div class="label" style="margin-top:15px">Tuổi</div>
+      <div class="grid">
+        <div id="age" class="value">—</div>
+        <button id="copyAge" class="btn-secondary">Sao chép</button>
+      </div>
+
+      <div class="label" style="margin-top:15px">Giới tính</div>
+      <select id="genderSelect">
+        <option value="female">Nữ</option>
+        <option value="male">Nam</option>
+        <option value="random">Ngẫu nhiên</option>
+      </select>
+
+      <div class="label" style="margin-top:15px">Họ — Tên đệm + Tên</div>
+      <div class="two-cols">
+        <div>
+          <div class="label">Họ</div>
+          <div id="family" class="value">—</div>
+        </div>
+        <div>
+          <div class="label">Tên đệm + Tên</div>
+          <div id="middleFirst" class="value">—</div>
+        </div>
+        <div>
+          <button id="copyFamily" class="btn-primary" style="width:100%">Copy Họ</button>
+          <button id="copyMiddleFirst" class="btn-secondary" style="width:100%; margin-top:8px">Copy Tên</button>
+        </div>
+      </div>
+
+      <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap">
+        <button id="generate" class="btn-primary">Tạo mới</button>
+        <button id="download" class="btn-secondary">Tải xuống (.txt)</button>
+      </div>
+    </div>
+
+    <footer>tạo bởi theanh</footer>
+  </div>
+<script>
+// === Khôi phục toàn bộ chức năng gốc ===
+const lastNames=['Nguyễn','Trần','Lê','Phạm','Hoàng','Vũ','Đặng','Bùi','Đỗ','Hà','Huỳnh','Võ','Phan','Trương','Lý','Tô','Tạ','Đinh','Đoàn','Mai','Đào','Cao','Ngô','Hồ','Châu','Triệu','Dương','Phùng','Đan','Vương','Lâm','Thái','Lưu','Chu','Quách','Đan','La','Từ','Tôn','Giang','Khương','Tống','Thạch','Bạch','Khuất'];
+const middleNamesMale=['Văn','Hữu','Đức','Minh','Quang','Ngọc','Thanh','Trọng','Gia','Hoàng','Nhật','Phúc','Khánh','Thiện','Anh','Trung'];
+const middleNamesFemale=['Thị','Ngọc','Thu','Diệu','Bảo','Khánh','Thanh','Mai','Hoài','Hồng','Lan','Phương','Minh','Trúc','Kim','Tuyết'];
+const firstNamesMale=['Anh','Bảo','Dũng','Hưng','Khoa','Long','Nam','Phong','Quân','Tuấn','Kiệt','Tài','Phát','Thắng','Hiếu','Trí','Thiện','Đạt','Vinh','Khang','Lộc','Toàn','Tâm','Quyết','Hào'];
+const firstNamesFemale=['An','Chi','Dung','Giang','Hà','Lan','Linh','Ngân','Trang','Vy','Như','Ngọc','Mai','Yến','Thảo','My','Phương','Ly','Oanh','Hương','Diệp','Tuyết','Đan','Hồng','Khanh'];
+
+const randFrom=a=>a[Math.floor(Math.random()*a.length)];
+const randRange=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+
+function generateNameParts(g){
+  const family=randFrom(lastNames);
+  let middle,first;
+  if(g==='male'){
+    middle=randFrom(middleNamesMale);
+    first=randFrom(firstNamesMale);
+  } else if(g==='female'){
+    middle=randFrom(middleNamesFemale);
+    first=randFrom(firstNamesFemale);
+  } else {
+    if(Math.random()<0.5){
+      middle=randFrom(middleNamesMale);
+      first=randFrom(firstNamesMale);
+    } else {
+      middle=randFrom(middleNamesFemale);
+      first=randFrom(firstNamesFemale);
+    }
+  }
+  return {family,middle,first};
+}
+
+function generateAge(){return randRange(18,80);}
+
+const elFamily=document.getElementById('family');
+const elMiddleFirst=document.getElementById('middleFirst');
+const elAge=document.getElementById('age');
+const passInput=document.getElementById('passInput');
+const genderSelect=document.getElementById('genderSelect');
+
+function populate(){
+  let g=genderSelect.value;
+  if(g==='random') g=Math.random()<0.5?'male':'female';
+  const parts=generateNameParts(g);
+  elFamily.textContent=parts.family;
+  elMiddleFirst.textContent=parts.middle + ' ' + parts.first;
+  elAge.textContent=generateAge();
+}
+
+function generateAll(){ populate(); }
+
+document.getElementById('generate').addEventListener('click',generateAll);
+
+async function copyText(t,btn){
+  if(!t||t==='—')return;
+  const prev = btn.textContent;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(t);
+    } else {
+      // fallback for older browsers or file:// contexts
+      const ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    btn.textContent='Đã copy';
+    setTimeout(()=>btn.textContent=prev,700);
+  }catch(err){
+    console.error('Copy failed:', err);
+    // try execCommand fallback
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent='Đã copy';
+      setTimeout(()=>btn.textContent=prev,700);
+    }catch(e){
+      btn.textContent='Không copy được';
+      setTimeout(()=>btn.textContent=prev,1500);
+      alert('Trình duyệt chặn clipboard khi mở file trực tiếp (file://). Vui lòng mở trang qua http(s) hoặc localhost, hoặc cho phép quyền clipboard.');
+    }
+  }
+}
+
+document.getElementById('copyFamily').addEventListener('click',()=>copyText(elFamily.textContent,document.getElementById('copyFamily')));
+document.getElementById('copyMiddleFirst').addEventListener('click',()=>copyText(elMiddleFirst.textContent,document.getElementById('copyMiddleFirst')));
+document.getElementById('copyAge').addEventListener('click',()=>copyText(elAge.textContent,document.getElementById('copyAge')));
+document.getElementById('copyPass').addEventListener('click',()=>copyText(passInput.value,document.getElementById('copyPass')));
+
+document.getElementById('download').addEventListener('click',()=>{
+  const fullName = elFamily.textContent + ' ' + elMiddleFirst.textContent;
+  const txt = `Họ: ${elFamily.textContent}
+Tên đệm + Tên: ${elMiddleFirst.textContent}
+Tên đầy đủ: ${fullName}
+Mật khẩu: ${passInput.value}
+Tuổi: ${elAge.textContent}
+`;
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='random_profile.txt';
+  a.click();
+});
+
+setInterval(()=>{
+  const g = genderSelect.value === 'random' ? (Math.random()<0.5?'male':'female') : genderSelect.value;
+  const parts = generateNameParts(g);
+  elFamily.textContent = parts.family;
+  elMiddleFirst.textContent = parts.middle + ' ' + parts.first;
+}, 10000);
+
+// init
+populate();
+</script>
+</body>
+</html>
