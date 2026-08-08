@@ -25,6 +25,11 @@
 #include <QResizeEvent>
 #include <QGraphicsEffect>
 #include <QIcon>
+#include <QButtonGroup>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPixmap>
 
 namespace
 {
@@ -41,6 +46,7 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
     : QWidget(parent)
     , m_licenseService(licenseService)
     , m_downloadService(new DownloadService(this))
+    , m_thumbNetwork(new QNetworkAccessManager(this))
 {
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -84,6 +90,9 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
         // as an inline toast on the relevant job card rather than a dialog.
         Q_UNUSED(msg);
     });
+
+    connect(m_downloadService, &DownloadService::videoInfoReady, this, &MainWindow::showVideoInfo);
+    connect(m_downloadService, &DownloadService::videoInfoFailed, this, &MainWindow::showAnalyzeError);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
@@ -180,53 +189,89 @@ QWidget *MainWindow::buildSidebar()
         layout->addSpacing(4);
     }
 
+    // Exclusive selection: clicking one nav item unchecks every other one.
+    // Previously each QPushButton was independently checkable, so several
+    // could end up highlighted at once (e.g. "Tải Video" + "Trình chỉnh
+    // sửa" both active in the screenshot).
+    auto *navGroup = new QButtonGroup(sidebar);
+    navGroup->setExclusive(true);
+    for (auto *btn : { navHome, navEditor, navActive, navDone, navHistory, navTools, navSettings }) {
+        navGroup->addButton(btn);
+    }
+
     layout->addStretch(1);
 
-    // Upgrade card
+    // License status card. MainWindow is only ever shown once
+    // LicenseService::isActivated() is true, so there is always a valid
+    // license here -- show its expiry instead of an "upgrade" pitch that
+    // no longer makes sense once the user already activated a key.
+    const LicenseInfo license = m_licenseService ? m_licenseService->loadLicense() : LicenseInfo{};
+
     auto *upgradeCard = new QFrame;
     upgradeCard->setObjectName(QStringLiteral("UpgradeCard"));
     auto *upgradeLayout = new QVBoxLayout(upgradeCard);
     upgradeLayout->setContentsMargins(16, 16, 16, 16);
     upgradeLayout->setSpacing(6);
 
-    auto *upgradeTitle = new QLabel(QStringLiteral("👑  Nâng cấp Pro"));
-    upgradeTitle->setObjectName(QStringLiteral("UpgradeTitle"));
-    upgradeLayout->addWidget(upgradeTitle);
-    upgradeLayout->addSpacing(4);
+    if (license.isValid()) {
+        const QString packageLabel = license.package.isEmpty()
+            ? QStringLiteral("PRO")
+            : license.package;
+        auto *statusTitle = new QLabel(QStringLiteral("✅  Gói %1 đã kích hoạt").arg(packageLabel));
+        statusTitle->setObjectName(QStringLiteral("UpgradeTitle"));
+        upgradeLayout->addWidget(statusTitle);
+        upgradeLayout->addSpacing(4);
 
-    for (const QString &item : { QStringLiteral("✓ Tốc độ tải nhanh hơn"),
-                                  QStringLiteral("✓ Không giới hạn lượt tải"),
-                                  QStringLiteral("✓ Hỗ trợ 1000+ website"),
-                                  QStringLiteral("✓ Chuyển đổi không giới hạn") }) {
-        auto *l = new QLabel(item);
-        l->setObjectName(QStringLiteral("UpgradeItem"));
-        upgradeLayout->addWidget(l);
+        if (license.expiresAt.isValid()) {
+            auto *expiryLabel = new QLabel(
+                QStringLiteral("Hết hạn: %1").arg(license.expiresAt.toLocalTime().toString(QStringLiteral("dd/MM/yyyy"))));
+            expiryLabel->setObjectName(QStringLiteral("UpgradeItem"));
+            upgradeLayout->addWidget(expiryLabel);
+        }
+        auto *daysLeftLabel = new QLabel(
+            license.daysLeft > 0
+                ? QStringLiteral("Còn lại %1 ngày sử dụng").arg(license.daysLeft)
+                : QStringLiteral("Sắp hết hạn"));
+        daysLeftLabel->setObjectName(QStringLiteral("UpgradeItem"));
+        upgradeLayout->addWidget(daysLeftLabel);
+        upgradeLayout->addSpacing(10);
+
+        auto *renewBtn = new QPushButton(QStringLiteral("Gia hạn / Mua thêm key"));
+        renewBtn->setObjectName(QStringLiteral("UpgradeButton"));
+        renewBtn->setCursor(Qt::PointingHandCursor);
+        upgradeLayout->addWidget(renewBtn);
+        connect(renewBtn, &QPushButton::clicked, this, []() {
+            QDesktopServices::openUrl(QUrl(AppConfig::purchaseUrl()));
+        });
+    } else {
+        // Fallback (shouldn't normally be reachable from MainWindow, kept
+        // defensive in case license state is ever cleared while this
+        // window is still open).
+        auto *upgradeTitle = new QLabel(QStringLiteral("👑  Nâng cấp Pro"));
+        upgradeTitle->setObjectName(QStringLiteral("UpgradeTitle"));
+        upgradeLayout->addWidget(upgradeTitle);
+        upgradeLayout->addSpacing(4);
+
+        for (const QString &item : { QStringLiteral("✓ Tốc độ tải nhanh hơn"),
+                                      QStringLiteral("✓ Không giới hạn lượt tải"),
+                                      QStringLiteral("✓ Hỗ trợ 1000+ website"),
+                                      QStringLiteral("✓ Chuyển đổi không giới hạn") }) {
+            auto *l = new QLabel(item);
+            l->setObjectName(QStringLiteral("UpgradeItem"));
+            upgradeLayout->addWidget(l);
+        }
+        upgradeLayout->addSpacing(10);
+
+        auto *upgradeBtn = new QPushButton(QStringLiteral("Nâng cấp ngay"));
+        upgradeBtn->setObjectName(QStringLiteral("UpgradeButton"));
+        upgradeBtn->setCursor(Qt::PointingHandCursor);
+        upgradeLayout->addWidget(upgradeBtn);
+        connect(upgradeBtn, &QPushButton::clicked, this, []() {
+            QDesktopServices::openUrl(QUrl(AppConfig::purchaseUrl()));
+        });
     }
-    upgradeLayout->addSpacing(10);
-
-    auto *upgradeBtn = new QPushButton(QStringLiteral("Nâng cấp ngay"));
-    upgradeBtn->setObjectName(QStringLiteral("UpgradeButton"));
-    upgradeBtn->setCursor(Qt::PointingHandCursor);
-    upgradeLayout->addWidget(upgradeBtn);
 
     layout->addWidget(upgradeCard);
-    layout->addSpacing(16);
-
-    auto *storageLabel = new QLabel(QStringLiteral("Bộ nhớ        45.2 GB / 100 GB"));
-    storageLabel->setObjectName(QStringLiteral("StorageLabel"));
-    auto *storageBar = new QProgressBar;
-    storageBar->setObjectName(QStringLiteral("StorageBar"));
-    storageBar->setRange(0, 100);
-    storageBar->setValue(45);
-    storageBar->setTextVisible(false);
-
-    layout->addWidget(storageLabel);
-    layout->addSpacing(6);
-    layout->addWidget(storageBar);
-
-    connect(upgradeBtn, &QPushButton::clicked, this, []() {
-        QDesktopServices::openUrl(QUrl(AppConfig::purchaseUrl()));
-    });
 
     return sidebar;
 }
@@ -285,17 +330,55 @@ QWidget *MainWindow::buildContent()
     pasteBtn->setCursor(Qt::PointingHandCursor);
     pasteBtn->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
 
+    m_analyzeButton = new QPushButton(QStringLiteral("  Phân tích"));
+    m_analyzeButton->setObjectName(QStringLiteral("PasteButton"));
+    m_analyzeButton->setCursor(Qt::PointingHandCursor);
+    m_analyzeButton->setIcon(QIcon(QStringLiteral(":/icons/globe.svg")));
+
     urlRow->addWidget(m_urlInput, 1);
     urlRow->addSpacing(10);
     urlRow->addWidget(pasteBtn);
+    urlRow->addSpacing(10);
+    urlRow->addWidget(m_analyzeButton);
     layout->addLayout(urlRow);
     layout->addSpacing(14);
 
-    auto *downloadBtn = new QPushButton(QStringLiteral("  Tải xuống"));
-    downloadBtn->setObjectName(QStringLiteral("DownloadButton"));
-    downloadBtn->setCursor(Qt::PointingHandCursor);
-    downloadBtn->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
-    layout->addWidget(downloadBtn);
+    // Preview card: filled in by analyzeLink() once yt-dlp reports the
+    // video's metadata. Hidden until there is something to show.
+    m_previewCard = new QFrame;
+    m_previewCard->setObjectName(QStringLiteral("OptionsCard"));
+    m_previewCard->setVisible(false);
+    auto *previewLayout = new QHBoxLayout(m_previewCard);
+    previewLayout->setContentsMargins(16, 16, 16, 16);
+    previewLayout->setSpacing(16);
+
+    m_previewThumb = new QLabel;
+    m_previewThumb->setFixedSize(160, 90);
+    m_previewThumb->setScaledContents(true);
+    m_previewThumb->setStyleSheet(QStringLiteral("background:#0B111F; border-radius:8px;"));
+    previewLayout->addWidget(m_previewThumb);
+
+    auto *previewTextCol = new QVBoxLayout;
+    previewTextCol->setSpacing(6);
+    m_previewTitle = new QLabel;
+    m_previewTitle->setObjectName(QStringLiteral("JobTitle"));
+    m_previewTitle->setWordWrap(true);
+    m_previewMeta = new QLabel;
+    m_previewMeta->setObjectName(QStringLiteral("FieldLabel"));
+    m_previewMeta->setWordWrap(true);
+    previewTextCol->addWidget(m_previewTitle);
+    previewTextCol->addWidget(m_previewMeta);
+    previewTextCol->addStretch(1);
+    previewLayout->addLayout(previewTextCol, 1);
+
+    layout->addWidget(m_previewCard);
+
+    m_previewError = new QLabel;
+    m_previewError->setObjectName(QStringLiteral("FieldLabel"));
+    m_previewError->setStyleSheet(QStringLiteral("color:#F87171; font-size:12.5px;"));
+    m_previewError->setVisible(false);
+    m_previewError->setWordWrap(true);
+    layout->addWidget(m_previewError);
     layout->addSpacing(28);
 
     auto *platformsLabel = new QLabel(QStringLiteral("Hỗ trợ các nền tảng phổ biến"));
@@ -305,8 +388,8 @@ QWidget *MainWindow::buildContent()
 
     auto *chipsRow = new QHBoxLayout;
     chipsRow->setSpacing(12);
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("YouTube")));
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Facebook")));
+    chipsRow->addWidget(makePlatformChip(QStringLiteral(":/images/youtube-logo.png"), QStringLiteral("YouTube")));
+    chipsRow->addWidget(makePlatformChip(QStringLiteral(":/images/facebook-logo.png"), QStringLiteral("Facebook")));
     chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("TikTok")));
     chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Instagram")));
     chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Twitter")));
@@ -374,11 +457,19 @@ QWidget *MainWindow::buildContent()
     optionsLayout->addLayout(checksRow, 2, 0, 1, 2);
 
     layout->addWidget(optionsCard);
+    layout->addSpacing(20);
+
+    auto *downloadBtn = new QPushButton(QStringLiteral("  Tải xuống"));
+    downloadBtn->setObjectName(QStringLiteral("DownloadButton"));
+    downloadBtn->setCursor(Qt::PointingHandCursor);
+    downloadBtn->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
+    layout->addWidget(downloadBtn);
     layout->addStretch(1);
 
     connect(pasteBtn, &QPushButton::clicked, this, [this]() {
         m_urlInput->setText(QApplication::clipboard()->text());
     });
+    connect(m_analyzeButton, &QPushButton::clicked, this, &MainWindow::analyzeLink);
     connect(downloadBtn, &QPushButton::clicked, this, &MainWindow::startDownload);
     connect(m_folderField, &QLineEdit::returnPressed, this, [this]() {
         // no-op placeholder; a "..." browse button can call QFileDialog::getExistingDirectory
@@ -527,4 +618,79 @@ void MainWindow::startDownload()
                                       m_formatCombo->currentText(),
                                       outputDir);
     m_urlInput->clear();
+}
+
+void MainWindow::analyzeLink()
+{
+    const QString url = m_urlInput->text().trimmed();
+
+    m_previewError->setVisible(false);
+    m_previewCard->setVisible(false);
+
+    if (url.isEmpty()) {
+        showAnalyzeError(QStringLiteral("Vui lòng dán một liên kết video trước."));
+        return;
+    }
+
+    m_analyzeButton->setEnabled(false);
+    m_analyzeButton->setText(QStringLiteral("  Đang phân tích..."));
+
+    // DownloadService::fetchVideoInfo shells out to the same yt-dlp engine
+    // as the actual download, so it works for every site yt-dlp supports
+    // (YouTube, Facebook, TikTok, Instagram, Twitter, and 1000+ others) --
+    // not a YouTube-only lookup.
+    m_downloadService->fetchVideoInfo(url);
+}
+
+void MainWindow::showVideoInfo(const VideoInfo &info)
+{
+    m_analyzeButton->setEnabled(true);
+    m_analyzeButton->setText(QStringLiteral("  Phân tích"));
+
+    m_previewError->setVisible(false);
+
+    m_previewTitle->setText(info.title);
+
+    QStringList metaParts;
+    if (!info.uploader.isEmpty()) {
+        metaParts << QStringLiteral("Kênh: %1").arg(info.uploader);
+    }
+    if (!info.uploadDate.isEmpty()) {
+        metaParts << QStringLiteral("Ngày đăng: %1").arg(info.uploadDate);
+    }
+    if (!info.durationText.isEmpty()) {
+        metaParts << QStringLiteral("Thời lượng: %1").arg(info.durationText);
+    }
+    if (!info.platform.isEmpty()) {
+        metaParts << info.platform;
+    }
+    m_previewMeta->setText(metaParts.join(QStringLiteral("   •   ")));
+
+    m_previewThumb->setPixmap(QPixmap());
+    m_previewCard->setVisible(true);
+
+    if (!info.thumbnailUrl.isEmpty()) {
+        QNetworkRequest request{QUrl(info.thumbnailUrl)};
+        QNetworkReply *reply = m_thumbNetwork->get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            reply->deleteLater();
+            if (reply->error() != QNetworkReply::NoError) {
+                return;
+            }
+            QPixmap pixmap;
+            if (pixmap.loadFromData(reply->readAll())) {
+                m_previewThumb->setPixmap(pixmap);
+            }
+        });
+    }
+}
+
+void MainWindow::showAnalyzeError(const QString &message)
+{
+    m_analyzeButton->setEnabled(true);
+    m_analyzeButton->setText(QStringLiteral("  Phân tích"));
+
+    m_previewCard->setVisible(false);
+    m_previewError->setText(message);
+    m_previewError->setVisible(true);
 }

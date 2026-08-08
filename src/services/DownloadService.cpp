@@ -7,6 +7,10 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDate>
+#include <QSharedPointer>
 
 DownloadService::DownloadService(QObject *parent)
     : QObject(parent)
@@ -132,6 +136,123 @@ QString DownloadService::startDownload(const QString &url,
     process->start();
 
     return id;
+}
+
+namespace
+{
+QString formatDuration(double seconds)
+{
+    if (seconds <= 0) {
+        return QString();
+    }
+    const int total = static_cast<int>(seconds);
+    const int h = total / 3600;
+    const int m = (total % 3600) / 60;
+    const int s = total % 60;
+    if (h > 0) {
+        return QStringLiteral("%1:%2:%3")
+            .arg(h)
+            .arg(m, 2, 10, QChar('0'))
+            .arg(s, 2, 10, QChar('0'));
+    }
+    return QStringLiteral("%1:%2").arg(m).arg(s, 2, 10, QChar('0'));
+}
+
+QString formatUploadDate(const QString &yyyymmdd)
+{
+    // yt-dlp reports upload_date as "YYYYMMDD".
+    const QDate date = QDate::fromString(yyyymmdd, QStringLiteral("yyyyMMdd"));
+    return date.isValid() ? date.toString(QStringLiteral("dd/MM/yyyy")) : QString();
+}
+}
+
+void DownloadService::fetchVideoInfo(const QString &url)
+{
+    const QString enginePath = resolveEnginePath();
+    if (enginePath.isEmpty()) {
+        emit videoInfoFailed(engineNotFoundMessage());
+        return;
+    }
+    if (url.trimmed().isEmpty()) {
+        emit videoInfoFailed(QStringLiteral("Vui lòng dán một liên kết video trước."));
+        return;
+    }
+
+    // --skip-download: only fetch metadata, never touch the media itself.
+    // --dump-single-json: one JSON object on stdout, works for single videos
+    // (a playlist URL still resolves to its first entry here since we also
+    // pass --no-playlist -- consistent with the download path).
+    QStringList args;
+    args << QStringLiteral("--skip-download")
+         << QStringLiteral("--no-playlist")
+         << QStringLiteral("--dump-single-json")
+         << url.trimmed();
+
+    auto *process = new QProcess(this);
+    process->setProgram(enginePath);
+    process->setArguments(args);
+
+    auto *stdoutBuf = new QByteArray();
+    auto handled = QSharedPointer<bool>::create(false);
+
+    connect(process, &QProcess::readyReadStandardOutput, this, [process, stdoutBuf]() {
+        stdoutBuf->append(process->readAllStandardOutput());
+    });
+
+    connect(process, &QProcess::finished, this,
+            [this, process, stdoutBuf, handled](int exitCode, QProcess::ExitStatus) {
+        if (*handled) {
+            return;
+        }
+        *handled = true;
+
+        const QByteArray output = *stdoutBuf;
+        delete stdoutBuf;
+        process->deleteLater();
+
+        if (exitCode != 0 || output.isEmpty()) {
+            emit videoInfoFailed(QStringLiteral(
+                "Không phân tích được liên kết này. Kiểm tra lại URL hoặc thử liên kết khác."));
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(output);
+        if (!doc.isObject()) {
+            emit videoInfoFailed(QStringLiteral("Phản hồi phân tích không hợp lệ."));
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        VideoInfo info;
+        info.title       = obj.value(QStringLiteral("title")).toString();
+        info.uploader     = obj.value(QStringLiteral("uploader")).toString();
+        if (info.uploader.isEmpty()) {
+            info.uploader = obj.value(QStringLiteral("channel")).toString();
+        }
+        info.uploadDate   = formatUploadDate(obj.value(QStringLiteral("upload_date")).toString());
+        info.durationText = formatDuration(obj.value(QStringLiteral("duration")).toDouble());
+        info.thumbnailUrl = obj.value(QStringLiteral("thumbnail")).toString();
+        info.platform     = obj.value(QStringLiteral("extractor_key")).toString();
+
+        if (info.title.isEmpty()) {
+            emit videoInfoFailed(QStringLiteral("Không đọc được thông tin video từ liên kết này."));
+            return;
+        }
+
+        emit videoInfoReady(info);
+    });
+
+    connect(process, &QProcess::errorOccurred, this, [this, process, stdoutBuf, handled](QProcess::ProcessError) {
+        if (*handled) {
+            return;
+        }
+        *handled = true;
+        delete stdoutBuf;
+        process->deleteLater();
+        emit videoInfoFailed(QStringLiteral("Không thể chạy công cụ phân tích video."));
+    });
+
+    process->start();
 }
 
 void DownloadService::pauseDownload(const QString &id)

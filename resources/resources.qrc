@@ -4,6 +4,8 @@
 
         <file alias="images/videox-logo.svg">images/videox-logo.svg</file>
         <file alias="images/illustration.svg">images/illustration.svg</file>
+        <file alias="images/youtube-logo.png">images/youtube-logo.png</file>
+        <file alias="images/facebook-logo.png">images/facebook-logo.png</file>
 
         <file alias="icons/shield-check.svg">icons/shield-check.svg</file>
         <file alias="icons/zap.svg">icons/zap.svg</file>

@@ -356,9 +356,9 @@
 #UrlInputBar {
     background: #12192B;
     border: 1px solid #1F2937;
-    border-radius: 12px;
-    min-height: 52px;
-    max-height: 52px;
+    border-radius: 14px;
+    min-height: 68px;
+    max-height: 68px;
     color: #F9FAFB;
     font-size: 13.5px;
     padding-left: 16px;

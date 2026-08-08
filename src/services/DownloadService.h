@@ -20,6 +20,20 @@ struct DownloadJob
     QString filePath;      // populated once completed
 };
 
+// Metadata returned by "Phân tích" (analyze) before a download starts --
+// lets the UI show the user what they're about to download (thumbnail,
+// title, channel, upload date, duration) without committing to the file
+// transfer yet.
+struct VideoInfo
+{
+    QString title;
+    QString uploader;      // channel / page / author name
+    QString uploadDate;    // formatted "dd/MM/yyyy", empty if unknown
+    QString durationText;  // formatted "mm:ss" / "h:mm:ss", empty if unknown
+    QString thumbnailUrl;
+    QString platform;      // extractor name reported by yt-dlp, e.g. "youtube"
+};
+
 // Thin wrapper around an external command-line downloader (yt-dlp.exe is the
 // de-facto standard and is what this class shells out to). Keeping this
 // behind an interface-like service means swapping the backend later
@@ -40,6 +54,13 @@ public:
                            const QString &format,
                            const QString &outputDir);
 
+    // "Phân tích" step: asks yt-dlp for the video's metadata (title,
+    // channel, upload date, duration, thumbnail) WITHOUT downloading the
+    // media itself (--skip-download --dump-single-json). Works for any of
+    // the 1000+ sites yt-dlp supports -- not YouTube-specific. Result
+    // arrives asynchronously via videoInfoReady()/videoInfoFailed().
+    void fetchVideoInfo(const QString &url);
+
     void pauseDownload(const QString &id);
     void cancelDownload(const QString &id);
 
@@ -50,6 +71,9 @@ signals:
     void progressChanged(const QString &id, int percent, const QString &speed, const QString &eta);
     void jobCompleted(const QString &id, const QString &filePath);
     void jobFailed(const QString &id, const QString &message);
+
+    void videoInfoReady(const VideoInfo &info);
+    void videoInfoFailed(const QString &message);
 
 private:
     QString resolveEnginePath() const;

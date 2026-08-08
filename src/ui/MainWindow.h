@@ -11,7 +11,9 @@ class QVBoxLayout;
 class QComboBox;
 class QFrame;
 class QResizeEvent;
+class QNetworkAccessManager;
 class TitleBar;
+struct VideoInfo;
 
 // Main application shell shown once a valid license is active.
 // This implements the "Tải Video" (download) view faithfully; the other
@@ -35,6 +37,9 @@ private:
     QWidget *makePlatformChip(const QString &iconPath, const QString &label);
 
     void startDownload();
+    void analyzeLink();
+    void showVideoInfo(const VideoInfo &info);
+    void showAnalyzeError(const QString &message);
 
     LicenseService *m_licenseService;
     DownloadService *m_downloadService;
@@ -48,4 +53,15 @@ private:
     QLineEdit *m_folderField = nullptr;
     QVBoxLayout *m_activeListLayout = nullptr;
     QVBoxLayout *m_completedListLayout = nullptr;
+
+    // "Phân tích" (analyze) preview: shows title/channel/upload
+    // date/duration/thumbnail for the pasted link before downloading.
+    // Works for any yt-dlp-supported site, not just YouTube.
+    QPushButton *m_analyzeButton = nullptr;
+    QFrame *m_previewCard = nullptr;
+    QLabel *m_previewThumb = nullptr;
+    QLabel *m_previewTitle = nullptr;
+    QLabel *m_previewMeta = nullptr;
+    QLabel *m_previewError = nullptr;
+    QNetworkAccessManager *m_thumbNetwork = nullptr;
 };
