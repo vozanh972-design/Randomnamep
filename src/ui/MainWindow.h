@@ -9,6 +9,8 @@ class QPushButton;
 class QLabel;
 class QVBoxLayout;
 class QComboBox;
+class QFrame;
+class QResizeEvent;
 class TitleBar;
 
 // Main application shell shown once a valid license is active.
@@ -22,6 +24,9 @@ class MainWindow : public QWidget
 public:
     explicit MainWindow(LicenseService *licenseService, QWidget *parent = nullptr);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     QWidget *buildSidebar();
     QWidget *buildContent();
@@ -34,6 +39,7 @@ private:
     LicenseService *m_licenseService;
     DownloadService *m_downloadService;
 
+    QFrame *m_root = nullptr;
     TitleBar *m_titleBar = nullptr;
     QLineEdit *m_urlInput = nullptr;
     QComboBox *m_resolutionCombo = nullptr;

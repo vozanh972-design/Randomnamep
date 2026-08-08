@@ -44,7 +44,7 @@ QString DownloadService::engineNotFoundMessage() const
 {
     return QStringLiteral(
         "Không tìm thấy công cụ tải video (yt-dlp.exe). "
-        "Vui lòng đặt yt-dlp.exe vào thư mục \"tools\" cạnh VideoX.exe, "
+        "Vui lòng đặt yt-dlp.exe vào thư mục \"tools\" cạnh LunexReDown.exe, "
         "hoặc thêm vào biến môi trường PATH.");
 }
 

@@ -9,7 +9,7 @@
 TitleBar::TitleBar(QWidget *parent)
     : QWidget(parent)
 {
-    setFixedHeight(44);
+    setFixedSize(46 * 3, 44); // exactly wide enough for the 3 buttons -> makes top-right pinning exact
     setObjectName(QStringLiteral("TitleBar"));
 
     auto *layout = new QHBoxLayout(this);

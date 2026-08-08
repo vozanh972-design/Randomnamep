@@ -34,7 +34,7 @@ public:
 
     // Starts a new download job and returns its generated id.
     // Requires yt-dlp(.exe) to be reachable (either on PATH or shipped
-    // alongside VideoX.exe in a "tools/" folder next to the executable).
+    // alongside LunexReDown.exe in a "tools/" folder next to the executable).
     QString startDownload(const QString &url,
                            const QString &resolution,
                            const QString &format,

@@ -22,6 +22,8 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QColor>
+#include <QResizeEvent>
+#include <QGraphicsEffect>
 #include <QIcon>
 
 namespace
@@ -48,7 +50,8 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(24, 24, 24, 24);
 
-    auto *root = new QFrame(this);
+    m_root = new QFrame(this);
+    QFrame *root = m_root;
     root->setObjectName(QStringLiteral("MainRoot"));
     auto *shadow = new QGraphicsDropShadowEffect(root);
     shadow->setBlurRadius(48);
@@ -67,7 +70,7 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
     m_titleBar = new TitleBar(root);
     m_titleBar->setParent(root);
     m_titleBar->raise();
-    m_titleBar->move(root->width() - 140, 0);
+    m_titleBar->move(root->width() - m_titleBar->width(), 0);
     connect(m_titleBar, &TitleBar::minimizeClicked, this, &QWidget::showMinimized);
     connect(m_titleBar, &TitleBar::closeClicked, this, &QWidget::close);
     connect(m_titleBar, &TitleBar::maximizeClicked, this, [this]() {
@@ -81,6 +84,31 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
         // as an inline toast on the relevant job card rather than a dialog.
         Q_UNUSED(msg);
     });
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    // Keep the min/max/close cluster pinned to the true top-right corner on
+    // every resize (drag-resize, maximize, restore, DPI change) instead of
+    // the one-shot position computed at construction time.
+    if (m_titleBar && m_root) {
+        m_titleBar->move(m_root->width() - m_titleBar->width(), 0);
+    }
+
+    // Maximized -> fill the whole screen edge-to-edge (drop the floating
+    // card's outer margin + shadow); windowed -> restore the card look.
+    if (auto *outer = qobject_cast<QVBoxLayout *>(layout())) {
+        const bool maximized = isMaximized();
+        outer->setContentsMargins(maximized ? 0 : 24, maximized ? 0 : 24,
+                                   maximized ? 0 : 24, maximized ? 0 : 24);
+    }
+    if (m_root) {
+        if (auto *shadow = m_root->graphicsEffect()) {
+            shadow->setEnabled(!isMaximized());
+        }
+    }
 }
 
 QPushButton *MainWindow::makeNavButton(const QString &iconPath, const QString &text, const QString &badge)
@@ -121,7 +149,7 @@ QWidget *MainWindow::buildSidebar()
     logo->setFixedSize(36, 36);
     auto *logoTextCol = new QVBoxLayout;
     logoTextCol->setSpacing(0);
-    auto *logoTitle = new QLabel(QStringLiteral("VideoX"));
+    auto *logoTitle = new QLabel(QStringLiteral("Lunex ReDown"));
     logoTitle->setObjectName(QStringLiteral("SidebarLogoText"));
     auto *logoSub = new QLabel(QStringLiteral("Downloader & Editor"));
     logoSub->setObjectName(QStringLiteral("SidebarLogoSub"));
@@ -320,7 +348,7 @@ QWidget *MainWindow::buildContent()
     m_qualityCombo->setObjectName(QStringLiteral("OptionCombo"));
     m_qualityCombo->addItems({QStringLiteral("Chất lượng cao"), QStringLiteral("Chất lượng trung bình"), QStringLiteral("Chất lượng thấp")});
 
-    m_folderField = new QLineEdit(QStringLiteral("D:\\VideoX\\Downloads"));
+    m_folderField = new QLineEdit(QStringLiteral("D:\\LunexReDown\\Downloads"));
     m_folderField->setObjectName(QStringLiteral("FolderField"));
 
     addField(0, 0, QStringLiteral("Độ phân giải"), m_resolutionCombo);

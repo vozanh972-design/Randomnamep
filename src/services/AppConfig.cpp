@@ -6,22 +6,22 @@
 
 QString AppConfig::licenseApiUrl()
 {
-    return QStringLiteral("https://your-domain.example.com/api/verify_key.php");
+    return QStringLiteral("https://lunex.io.vn/api/verify_key.php");
 }
 
 QString AppConfig::purchaseUrl()
 {
-    return QStringLiteral("https://your-domain.example.com/mua-key");
+    return QStringLiteral("https://lunex.io.vn");
 }
 
 QString AppConfig::supportUrl()
 {
-    return QStringLiteral("https://your-domain.example.com/ho-tro");
+    return QStringLiteral("https://zalo.me/0931006827");
 }
 
 QString AppConfig::websiteUrl()
 {
-    return QStringLiteral("https://your-domain.example.com");
+    return QStringLiteral("https://lunex.io.vn");
 }
 
 QString AppConfig::appVersion()
@@ -31,10 +31,10 @@ QString AppConfig::appVersion()
 
 QString AppConfig::orgName()
 {
-    return QStringLiteral("VideoX");
+    return QStringLiteral("Lunex ReDown");
 }
 
 QString AppConfig::appName()
 {
-    return QStringLiteral("VideoX");
+    return QStringLiteral("Lunex ReDown");
 }

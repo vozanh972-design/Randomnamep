@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(VideoX VERSION 1.0.0 LANGUAGES CXX)
+project(LunexReDown VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,20 +36,20 @@ set(HEADERS
     src/models/LicenseInfo.h
 )
 
-qt_add_executable(VideoX
+qt_add_executable(LunexReDown
     ${SOURCES}
     ${HEADERS}
     resources/resources.qrc
 )
 
-target_include_directories(VideoX PRIVATE
+target_include_directories(LunexReDown PRIVATE
     src
     src/ui
     src/services
     src/models
 )
 
-target_link_libraries(VideoX PRIVATE
+target_link_libraries(LunexReDown PRIVATE
     Qt6::Widgets
     Qt6::Network
     Qt6::Svg
@@ -57,12 +57,12 @@ target_link_libraries(VideoX PRIVATE
 )
 
 if(WIN32)
-    set_target_properties(VideoX PROPERTIES
-        OUTPUT_NAME "VideoX"
+    set_target_properties(LunexReDown PROPERTIES
+        OUTPUT_NAME "LunexReDown"
     )
 endif()
 
-set_target_properties(VideoX PROPERTIES
+set_target_properties(LunexReDown PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 

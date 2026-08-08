@@ -16,6 +16,8 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QColor>
+#include <QResizeEvent>
+#include <QGraphicsEffect>
 #include <QIcon>
 #include <QStyle>
 
@@ -44,7 +46,8 @@ ActivationWindow::ActivationWindow(LicenseService *licenseService, QWidget *pare
     outer->setContentsMargins(24, 24, 24, 24);
     outer->setSpacing(0);
 
-    auto *root = new QFrame(this);
+    m_root = new QFrame(this);
+    QFrame *root = m_root;
     root->setObjectName(QStringLiteral("ActivationRoot"));
     auto *shadow = new QGraphicsDropShadowEffect(root);
     shadow->setBlurRadius(48);
@@ -60,7 +63,14 @@ ActivationWindow::ActivationWindow(LicenseService *licenseService, QWidget *pare
     connect(m_titleBar, &TitleBar::minimizeClicked, this, &QWidget::showMinimized);
     connect(m_titleBar, &TitleBar::closeClicked, this, &QWidget::close);
     connect(m_titleBar, &TitleBar::maximizeClicked, this, [this]() {
-        isMaximized() ? showNormal() : showMaximized();
+        if (isMaximized()) {
+            showNormal();
+        } else {
+            // Frameless windows need the "card" margins/shadow dropped so
+            // maximizing actually fills the whole screen instead of
+            // leaving the 24px card gap around the edges.
+            showMaximized();
+        }
     });
 
     auto *body = new QHBoxLayout;
@@ -74,6 +84,7 @@ ActivationWindow::ActivationWindow(LicenseService *licenseService, QWidget *pare
     rootLayout->addLayout(body);
     m_titleBar->setParent(root);
     m_titleBar->raise();
+    m_titleBar->move(root->width() - m_titleBar->width(), 0);
 
     outer->addWidget(root);
 
@@ -96,6 +107,34 @@ void ActivationWindow::paintEvent(QPaintEvent *event)
     Q_UNUSED(event);
     // Root frame carries its own rounded background via QSS; nothing to
     // paint at this level beyond the default (keeps translucent margins).
+}
+
+void ActivationWindow::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    // Keep the min/max/close cluster pinned to the true top-right corner on
+    // every resize (window drag-resize, maximize, restore, DPI changes) --
+    // a one-shot move() at construction time goes stale the moment the
+    // window size changes.
+    if (m_titleBar && m_root) {
+        m_titleBar->move(m_root->width() - m_titleBar->width(), 0);
+    }
+
+    // When maximized, drop the floating-card look (outer margin + shadow)
+    // so the window actually fills the entire screen edge-to-edge instead
+    // of leaving a visible gap around a "card" that never grew past its
+    // windowed size.
+    if (auto *outer = qobject_cast<QVBoxLayout *>(layout())) {
+        const bool maximized = isMaximized();
+        outer->setContentsMargins(maximized ? 0 : 24, maximized ? 0 : 24,
+                                   maximized ? 0 : 24, maximized ? 0 : 24);
+    }
+    if (m_root) {
+        if (auto *shadow = m_root->graphicsEffect()) {
+            shadow->setEnabled(!isMaximized());
+        }
+    }
 }
 
 QWidget *ActivationWindow::buildFeatureRow(const QString &iconPath, const QString &title, const QString &desc)
@@ -223,7 +262,7 @@ QWidget *ActivationWindow::buildRightPanel()
     keyCircleRow->addWidget(keyCircle);
     keyCircleRow->addStretch(1);
 
-    auto *welcomeTitle = new QLabel(QStringLiteral("Chào mừng đến với VideoX"));
+    auto *welcomeTitle = new QLabel(QStringLiteral("Chào mừng đến với Lunex ReDown"));
     welcomeTitle->setObjectName(QStringLiteral("WelcomeTitle"));
     welcomeTitle->setAlignment(Qt::AlignCenter);
 
@@ -262,7 +301,7 @@ QWidget *ActivationWindow::buildRightPanel()
 
     m_keyInput = new QLineEdit;
     m_keyInput->setObjectName(QStringLiteral("KeyInput"));
-    m_keyInput->setPlaceholderText(QStringLiteral("Nhập key tại đây (ví dụ: VX-XXXXX-XXXXX-XXXXX)"));
+    m_keyInput->setPlaceholderText(QStringLiteral("Nhập key tại đây (ví dụ: LUNEX-XXXXXX-XXXXXX-XXXXXX-P30D)"));
     m_keyInput->setClearButtonEnabled(false);
 
     auto *keyIcon = makeIcon(QStringLiteral(":/icons/key.svg"), 18);
@@ -327,7 +366,7 @@ QWidget *ActivationWindow::buildRightPanel()
 
     content->addSpacing(24);
 
-    auto *hint = new QLabel(QStringLiteral("Bạn chưa có key? Mua ngay để trải nghiệm đầy đủ tính năng của VideoX."));
+    auto *hint = new QLabel(QStringLiteral("Bạn chưa có key? Mua ngay để trải nghiệm đầy đủ tính năng của Lunex ReDown."));
     hint->setObjectName(QStringLiteral("LowerHintLabel"));
     hint->setAlignment(Qt::AlignCenter);
     content->addWidget(hint);

@@ -7,6 +7,8 @@ class QLineEdit;
 class QPushButton;
 class QLabel;
 class QVBoxLayout;
+class QFrame;
+class QResizeEvent;
 class TitleBar;
 
 // The very first screen the user sees: license key entry.
@@ -24,6 +26,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void onActivateClicked();
@@ -41,6 +44,7 @@ private:
 
     LicenseService *m_licenseService;
 
+    QFrame *m_root = nullptr;
     TitleBar *m_titleBar = nullptr;
     QLineEdit *m_keyInput = nullptr;
     QPushButton *m_activateButton = nullptr;
