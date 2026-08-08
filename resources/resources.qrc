@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="styles/styles.qss">styles/styles.qss</file>
+
+        <file alias="images/videox-logo.svg">images/videox-logo.svg</file>
+        <file alias="images/illustration.svg">images/illustration.svg</file>
+
+        <file alias="icons/shield-check.svg">icons/shield-check.svg</file>
+        <file alias="icons/zap.svg">icons/zap.svg</file>
+        <file alias="icons/film-edit.svg">icons/film-edit.svg</file>
+        <file alias="icons/lock.svg">icons/lock.svg</file>
+        <file alias="icons/lock-white.svg">icons/lock-white.svg</file>
+        <file alias="icons/key.svg">icons/key.svg</file>
+        <file alias="icons/key-indigo.svg">icons/key-indigo.svg</file>
+        <file alias="icons/cart.svg">icons/cart.svg</file>
+        <file alias="icons/chevron-right.svg">icons/chevron-right.svg</file>
+        <file alias="icons/check-circle.svg">icons/check-circle.svg</file>
+        <file alias="icons/alert-circle.svg">icons/alert-circle.svg</file>
+        <file alias="icons/headset.svg">icons/headset.svg</file>
+        <file alias="icons/globe.svg">icons/globe.svg</file>
+        <file alias="icons/download-arrow.svg">icons/download-arrow.svg</file>
+    </qresource>
+</RCC>
