@@ -1,4 +1,4 @@
-name: Build VideoX.exe
+name: Build LunexReDown.exe
 
 on:
   push:
@@ -40,12 +40,20 @@ jobs:
       - name: Deploy Qt runtime (windeployqt)
         run: |
           mkdir dist
-          copy build\bin\VideoX.exe dist\VideoX.exe
-          windeployqt --release dist\VideoX.exe
+          copy build\bin\LunexReDown.exe dist\LunexReDown.exe
+          windeployqt --release --no-translations dist\LunexReDown.exe
         shell: cmd
 
-      - name: Upload VideoX.exe artifact
+      - name: Strip anything that isn't needed to run the app
+        # Users only ever receive this dist/ folder (exe + Qt runtime DLLs).
+        # No .cpp/.h source, no .pdb debug symbols, no server/ code ships here.
+        run: |
+          del /q dist\*.pdb 2>nul
+          del /q dist\*.lib 2>nul
+        shell: cmd
+
+      - name: Upload LunexReDown.exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VideoX-windows-x64
+          name: LunexReDown-windows-x64
           path: dist/
