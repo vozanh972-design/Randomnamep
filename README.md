@@ -179,15 +179,18 @@ Qt app:
 
 `DownloadService` shells out to `yt-dlp.exe` via `QProcess` (industry
 standard, MIT-licensed, actively maintained, supports 1000+ sites — matches
-the "1000+ website" claim in the UI). It looks for the binary at:
+the "1000+ website" claim in the UI). It looks for the binary at, in order:
 
-1. `<exe-dir>/tools/yt-dlp.exe` (recommended — ship it alongside `LunexReDown.exe`)
-2. Otherwise, on `PATH`
+1. `<exe-dir>/yt-dlp.exe` — directly next to `LunexReDown.exe` (simplest,
+   and what most people do — just drop it in the same folder as the exe)
+2. `<exe-dir>/tools/yt-dlp.exe` — a `tools` subfolder next to the exe
+3. Otherwise, on `PATH`
 
-If neither is found, `DownloadService::engineNotFoundMessage()` is surfaced
-instead of silently failing. `yt-dlp.exe` and `ffmpeg.exe` (needed for
-`--merge-output-format mp4`) are not bundled here — download them from
-their official sources and drop them in `tools/` next to the built exe.
+If none of those are found, `DownloadService::engineNotFoundMessage()` is
+surfaced instead of silently failing. `yt-dlp.exe` and `ffmpeg.exe` (needed
+for `--merge-output-format mp4`) are not bundled here — download them from
+their official sources and drop them next to the built exe (either
+directly, or in a `tools/` subfolder — both work).
 
 ## What's implemented vs. stubbed
 

@@ -24,13 +24,20 @@ DownloadService::~DownloadService()
 
 QString DownloadService::resolveEnginePath() const
 {
-    // 1) Shipped next to the exe: <appdir>/tools/yt-dlp.exe
+    // 1) Right next to the exe: <appdir>/yt-dlp.exe
+    //    (most common place people actually drop it -- checked first).
+    const QString sameDir = QCoreApplication::applicationDirPath() + "/yt-dlp.exe";
+    if (QFileInfo::exists(sameDir)) {
+        return sameDir;
+    }
+
+    // 2) In a "tools" subfolder next to the exe: <appdir>/tools/yt-dlp.exe
     const QString bundled = QCoreApplication::applicationDirPath() + "/tools/yt-dlp.exe";
     if (QFileInfo::exists(bundled)) {
         return bundled;
     }
 
-    // 2) Available on PATH
+    // 3) Available on PATH
     const QString onPath = QStandardPaths::findExecutable(QStringLiteral("yt-dlp"));
     if (!onPath.isEmpty()) {
         return onPath;
@@ -48,8 +55,8 @@ QString DownloadService::engineNotFoundMessage() const
 {
     return QStringLiteral(
         "Không tìm thấy công cụ tải video (yt-dlp.exe). "
-        "Vui lòng đặt yt-dlp.exe vào thư mục \"tools\" cạnh LunexReDown.exe, "
-        "hoặc thêm vào biến môi trường PATH.");
+        "Vui lòng đặt yt-dlp.exe cùng thư mục với LunexReDown.exe "
+        "(hoặc trong thư mục con \"tools\"), hoặc thêm vào biến môi trường PATH.");
 }
 
 QStringList DownloadService::buildArguments(const DownloadJob &job) const
