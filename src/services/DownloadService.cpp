@@ -9,8 +9,10 @@
 #include <QStandardPaths>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QDate>
 #include <QSharedPointer>
+#include <QTimer>
 
 DownloadService::DownloadService(QObject *parent)
     : QObject(parent)
@@ -186,12 +188,20 @@ void DownloadService::fetchVideoInfo(const QString &url)
     }
 
     // --skip-download: only fetch metadata, never touch the media itself.
-    // --dump-single-json: one JSON object on stdout, works for single videos
-    // (a playlist URL still resolves to its first entry here since we also
-    // pass --no-playlist -- consistent with the download path).
+    // --dump-single-json: one JSON object on stdout, works for single videos.
+    // --no-playlist only short-circuits a *video* URL that happens to carry
+    // a playlist id (e.g. a YouTube watch link opened from inside a
+    // playlist) -- it does nothing for a URL that is itself a playlist,
+    // channel, or profile page. Without a limit, yt-dlp would walk the
+    // entire channel gathering full metadata for every video before
+    // "--dump-single-json" could return anything, which is what made
+    // pasting a profile link sit there and never finish. --playlist-items 1
+    // caps that walk to just the first entry so a profile link resolves
+    // (as a preview of its most recent video) instead of hanging.
     QStringList args;
     args << QStringLiteral("--skip-download")
          << QStringLiteral("--no-playlist")
+         << QStringLiteral("--playlist-items") << QStringLiteral("1")
          << QStringLiteral("--dump-single-json")
          << url.trimmed();
 
@@ -202,20 +212,37 @@ void DownloadService::fetchVideoInfo(const QString &url)
     auto *stdoutBuf = new QByteArray();
     auto handled = QSharedPointer<bool>::create(false);
 
+    // Safety net: even capped to one item, a slow/unreachable site
+    // shouldn't be able to leave the "Đang phân tích..." button stuck
+    // forever. Kill the process and report a clear reason instead.
+    auto *timeoutTimer = new QTimer(process);
+    timeoutTimer->setSingleShot(true);
+    timeoutTimer->setInterval(25000);
+
     connect(process, &QProcess::readyReadStandardOutput, this, [process, stdoutBuf]() {
         stdoutBuf->append(process->readAllStandardOutput());
     });
 
-    connect(process, &QProcess::finished, this,
-            [this, process, stdoutBuf, handled](int exitCode, QProcess::ExitStatus) {
+    auto finishOnce = [this, process, stdoutBuf, handled, timeoutTimer](
+                           bool timedOut, int exitCode, QByteArray output) {
+        // output is taken by value: it must be a copy of *stdoutBuf, not a
+        // reference to it, since stdoutBuf is freed a few lines down and
+        // output is still read after that (exitCode/isEmpty checks, JSON
+        // parsing) -- a reference here would dangle.
         if (*handled) {
             return;
         }
         *handled = true;
-
-        const QByteArray output = *stdoutBuf;
+        timeoutTimer->stop();
         delete stdoutBuf;
         process->deleteLater();
+
+        if (timedOut) {
+            emit videoInfoFailed(QStringLiteral(
+                "Liên kết này mất quá nhiều thời gian để phân tích (có thể đây là link "
+                "kênh/trang cá nhân có rất nhiều video). Vui lòng dán link của một video cụ thể."));
+            return;
+        }
 
         if (exitCode != 0 || output.isEmpty()) {
             emit videoInfoFailed(QStringLiteral(
@@ -229,7 +256,22 @@ void DownloadService::fetchVideoInfo(const QString &url)
             return;
         }
 
-        const QJsonObject obj = doc.object();
+        QJsonObject obj = doc.object();
+
+        // A bare channel/profile URL with --playlist-items 1 can still come
+        // back as a playlist wrapper (_type: "playlist") holding a single
+        // entry, rather than the video object itself -- unwrap it so the
+        // preview shows that first video instead of failing to find a title.
+        if (obj.value(QStringLiteral("_type")).toString() == QStringLiteral("playlist")) {
+            const QJsonArray entries = obj.value(QStringLiteral("entries")).toArray();
+            if (entries.isEmpty()) {
+                emit videoInfoFailed(QStringLiteral(
+                    "Đây có vẻ là link kênh/trang cá nhân không có video nào để phân tích."));
+                return;
+            }
+            obj = entries.first().toObject();
+        }
+
         VideoInfo info;
         info.title       = obj.value(QStringLiteral("title")).toString();
         info.uploader     = obj.value(QStringLiteral("uploader")).toString();
@@ -247,18 +289,23 @@ void DownloadService::fetchVideoInfo(const QString &url)
         }
 
         emit videoInfoReady(info);
+    };
+
+    connect(process, &QProcess::finished, this,
+            [stdoutBuf, finishOnce](int exitCode, QProcess::ExitStatus) {
+        finishOnce(false, exitCode, *stdoutBuf);
     });
 
-    connect(process, &QProcess::errorOccurred, this, [this, process, stdoutBuf, handled](QProcess::ProcessError) {
-        if (*handled) {
-            return;
-        }
-        *handled = true;
-        delete stdoutBuf;
-        process->deleteLater();
-        emit videoInfoFailed(QStringLiteral("Không thể chạy công cụ phân tích video."));
+    connect(process, &QProcess::errorOccurred, this, [finishOnce](QProcess::ProcessError) {
+        finishOnce(false, -1, QByteArray());
     });
 
+    connect(timeoutTimer, &QTimer::timeout, this, [process, finishOnce]() {
+        process->kill();
+        finishOnce(true, -1, QByteArray());
+    });
+
+    timeoutTimer->start();
     process->start();
 }
 

@@ -16,7 +16,9 @@
         <file alias="icons/key-indigo.svg">icons/key-indigo.svg</file>
         <file alias="icons/cart.svg">icons/cart.svg</file>
         <file alias="icons/chevron-right.svg">icons/chevron-right.svg</file>
+        <file alias="icons/chevron-down.svg">icons/chevron-down.svg</file>
         <file alias="icons/check-circle.svg">icons/check-circle.svg</file>
+        <file alias="icons/check-white.svg">icons/check-white.svg</file>
         <file alias="icons/alert-circle.svg">icons/alert-circle.svg</file>
         <file alias="icons/headset.svg">icons/headset.svg</file>
         <file alias="icons/globe.svg">icons/globe.svg</file>

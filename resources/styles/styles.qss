@@ -294,34 +294,35 @@
 }
 
 #UpgradeCard {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                 stop:0 #4338CA, stop:1 #3B82F6);
-    border-radius: 12px;
+    background: #12192B;
+    border: 1px solid #1F2937;
+    border-radius: 10px;
 }
 
 #UpgradeTitle {
-    color: #FFFFFF;
-    font-size: 13px;
-    font-weight: 700;
+    color: #E5E7EB;
+    font-size: 12.5px;
+    font-weight: 600;
 }
 
 #UpgradeItem {
-    color: #E0E7FF;
+    color: #6B7280;
     font-size: 11.5px;
 }
 
 #UpgradeButton {
-    background: #FFFFFF;
-    color: #4338CA;
-    border: none;
+    background: transparent;
+    color: #A5B4FC;
+    border: 1px solid #2A3348;
     border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 700;
-    min-height: 32px;
+    font-size: 12px;
+    font-weight: 600;
+    min-height: 30px;
 }
 
 #UpgradeButton:hover {
-    background: #F5F3FF;
+    background: #171F32;
+    border-color: #3B4360;
 }
 
 #StorageLabel {
@@ -428,6 +429,55 @@
     font-size: 13px;
     min-height: 36px;
     padding: 0 10px;
+}
+
+#OptionCombo::drop-down {
+    border: none;
+    width: 24px;
+}
+
+#OptionCombo::down-arrow {
+    image: url(:/icons/chevron-down.svg);
+    width: 10px;
+    height: 10px;
+}
+
+#OptionCombo QAbstractItemView {
+    background: #12192B;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+    color: #E5E7EB;
+    selection-background-color: #4F46E5;
+    selection-color: #FFFFFF;
+    outline: none;
+    padding: 4px;
+}
+
+/* ---------- Checkboxes ----------
+   Left unstyled before, these fell back to the OS's default light-theme
+   checkbox: a plain white square that clashed with the dark UI. Draw our
+   own indicator instead so it matches the rest of the theme in both
+   states. */
+QCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #2A3348;
+    border-radius: 4px;
+    background: #12192B;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #4F46E5;
+}
+
+QCheckBox::indicator:checked {
+    background: #4F46E5;
+    border-color: #4F46E5;
+    image: url(:/icons/check-white.svg);
 }
 
 #RightPane {

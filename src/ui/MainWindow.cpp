@@ -10,7 +10,6 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QCheckBox>
-#include <QProgressBar>
 #include <QFrame>
 #include <QScrollArea>
 #include <QSvgWidget>
@@ -175,16 +174,20 @@ QWidget *MainWindow::buildSidebar()
     layout->addLayout(logoRow);
     layout->addSpacing(28);
 
+    // "Đang tải" used to be its own nav destination backed by a fake demo
+    // list in the right pane. That list never reflected real download
+    // state, so it's gone now -- completed downloads still get a home
+    // below ("Đã hoàn thành"), and in-progress state belongs on the job
+    // itself once real progress wiring lands, not a separate page.
     auto *navHome = makeNavButton(QStringLiteral(":/icons/download-arrow.svg"), QStringLiteral("Tải Video"));
     navHome->setChecked(true);
     auto *navEditor = makeNavButton(QStringLiteral(":/icons/film-edit.svg"), QStringLiteral("Trình chỉnh sửa"));
-    auto *navActive = makeNavButton(QStringLiteral(":/icons/download-arrow.svg"), QStringLiteral("Đang tải"), QStringLiteral("3"));
     auto *navDone = makeNavButton(QStringLiteral(":/icons/check-circle.svg"), QStringLiteral("Đã hoàn thành"), QStringLiteral("12"));
     auto *navHistory = makeNavButton(QStringLiteral(":/icons/globe.svg"), QStringLiteral("Lịch sử"));
     auto *navTools = makeNavButton(QStringLiteral(":/icons/zap.svg"), QStringLiteral("Công cụ"));
     auto *navSettings = makeNavButton(QStringLiteral(":/icons/lock.svg"), QStringLiteral("Cài đặt"));
 
-    for (auto *btn : { navHome, navEditor, navActive, navDone, navHistory, navTools, navSettings }) {
+    for (auto *btn : { navHome, navEditor, navDone, navHistory, navTools, navSettings }) {
         layout->addWidget(btn);
         layout->addSpacing(4);
     }
@@ -195,7 +198,7 @@ QWidget *MainWindow::buildSidebar()
     // sửa" both active in the screenshot).
     auto *navGroup = new QButtonGroup(sidebar);
     navGroup->setExclusive(true);
-    for (auto *btn : { navHome, navEditor, navActive, navDone, navHistory, navTools, navSettings }) {
+    for (auto *btn : { navHome, navEditor, navDone, navHistory, navTools, navSettings }) {
         navGroup->addButton(btn);
     }
 
@@ -213,11 +216,13 @@ QWidget *MainWindow::buildSidebar()
     upgradeLayout->setContentsMargins(16, 16, 16, 16);
     upgradeLayout->setSpacing(6);
 
+    // Plain text, no emoji/colored badges -- matches the understated
+    // account block at the bottom of the reference sidebar.
     if (license.isValid()) {
         const QString packageLabel = license.package.isEmpty()
             ? QStringLiteral("PRO")
             : license.package;
-        auto *statusTitle = new QLabel(QStringLiteral("✅  Gói %1 đã kích hoạt").arg(packageLabel));
+        auto *statusTitle = new QLabel(QStringLiteral("Gói %1 · Đang hoạt động").arg(packageLabel));
         statusTitle->setObjectName(QStringLiteral("UpgradeTitle"));
         upgradeLayout->addWidget(statusTitle);
         upgradeLayout->addSpacing(4);
@@ -247,15 +252,15 @@ QWidget *MainWindow::buildSidebar()
         // Fallback (shouldn't normally be reachable from MainWindow, kept
         // defensive in case license state is ever cleared while this
         // window is still open).
-        auto *upgradeTitle = new QLabel(QStringLiteral("👑  Nâng cấp Pro"));
+        auto *upgradeTitle = new QLabel(QStringLiteral("Nâng cấp Pro"));
         upgradeTitle->setObjectName(QStringLiteral("UpgradeTitle"));
         upgradeLayout->addWidget(upgradeTitle);
         upgradeLayout->addSpacing(4);
 
-        for (const QString &item : { QStringLiteral("✓ Tốc độ tải nhanh hơn"),
-                                      QStringLiteral("✓ Không giới hạn lượt tải"),
-                                      QStringLiteral("✓ Hỗ trợ 1000+ website"),
-                                      QStringLiteral("✓ Chuyển đổi không giới hạn") }) {
+        for (const QString &item : { QStringLiteral("Tốc độ tải nhanh hơn"),
+                                      QStringLiteral("Không giới hạn lượt tải"),
+                                      QStringLiteral("Hỗ trợ 1000+ website"),
+                                      QStringLiteral("Chuyển đổi không giới hạn") }) {
             auto *l = new QLabel(item);
             l->setObjectName(QStringLiteral("UpgradeItem"));
             upgradeLayout->addWidget(l);
@@ -341,44 +346,6 @@ QWidget *MainWindow::buildContent()
     urlRow->addSpacing(10);
     urlRow->addWidget(m_analyzeButton);
     layout->addLayout(urlRow);
-    layout->addSpacing(14);
-
-    // Preview card: filled in by analyzeLink() once yt-dlp reports the
-    // video's metadata. Hidden until there is something to show.
-    m_previewCard = new QFrame;
-    m_previewCard->setObjectName(QStringLiteral("OptionsCard"));
-    m_previewCard->setVisible(false);
-    auto *previewLayout = new QHBoxLayout(m_previewCard);
-    previewLayout->setContentsMargins(16, 16, 16, 16);
-    previewLayout->setSpacing(16);
-
-    m_previewThumb = new QLabel;
-    m_previewThumb->setFixedSize(160, 90);
-    m_previewThumb->setScaledContents(true);
-    m_previewThumb->setStyleSheet(QStringLiteral("background:#0B111F; border-radius:8px;"));
-    previewLayout->addWidget(m_previewThumb);
-
-    auto *previewTextCol = new QVBoxLayout;
-    previewTextCol->setSpacing(6);
-    m_previewTitle = new QLabel;
-    m_previewTitle->setObjectName(QStringLiteral("JobTitle"));
-    m_previewTitle->setWordWrap(true);
-    m_previewMeta = new QLabel;
-    m_previewMeta->setObjectName(QStringLiteral("FieldLabel"));
-    m_previewMeta->setWordWrap(true);
-    previewTextCol->addWidget(m_previewTitle);
-    previewTextCol->addWidget(m_previewMeta);
-    previewTextCol->addStretch(1);
-    previewLayout->addLayout(previewTextCol, 1);
-
-    layout->addWidget(m_previewCard);
-
-    m_previewError = new QLabel;
-    m_previewError->setObjectName(QStringLiteral("FieldLabel"));
-    m_previewError->setStyleSheet(QStringLiteral("color:#F87171; font-size:12.5px;"));
-    m_previewError->setVisible(false);
-    m_previewError->setWordWrap(true);
-    layout->addWidget(m_previewError);
     layout->addSpacing(28);
 
     auto *platformsLabel = new QLabel(QStringLiteral("Hỗ trợ các nền tảng phổ biến"));
@@ -464,6 +431,48 @@ QWidget *MainWindow::buildContent()
     downloadBtn->setCursor(Qt::PointingHandCursor);
     downloadBtn->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
     layout->addWidget(downloadBtn);
+    layout->addSpacing(20);
+
+    // Preview card: filled in by analyzeLink() once yt-dlp reports the
+    // video's metadata. Hidden until there is something to show. Lives
+    // below the download button rather than above the URL bar, so the
+    // page reads top-to-bottom: paste link -> set options -> download ->
+    // see what you just analyzed/downloaded.
+    m_previewCard = new QFrame;
+    m_previewCard->setObjectName(QStringLiteral("OptionsCard"));
+    m_previewCard->setVisible(false);
+    auto *previewLayout = new QHBoxLayout(m_previewCard);
+    previewLayout->setContentsMargins(16, 16, 16, 16);
+    previewLayout->setSpacing(16);
+
+    m_previewThumb = new QLabel;
+    m_previewThumb->setFixedSize(160, 90);
+    m_previewThumb->setScaledContents(true);
+    m_previewThumb->setStyleSheet(QStringLiteral("background:#0B111F; border-radius:8px;"));
+    previewLayout->addWidget(m_previewThumb);
+
+    auto *previewTextCol = new QVBoxLayout;
+    previewTextCol->setSpacing(6);
+    m_previewTitle = new QLabel;
+    m_previewTitle->setObjectName(QStringLiteral("JobTitle"));
+    m_previewTitle->setWordWrap(true);
+    m_previewMeta = new QLabel;
+    m_previewMeta->setObjectName(QStringLiteral("FieldLabel"));
+    m_previewMeta->setWordWrap(true);
+    previewTextCol->addWidget(m_previewTitle);
+    previewTextCol->addWidget(m_previewMeta);
+    previewTextCol->addStretch(1);
+    previewLayout->addLayout(previewTextCol, 1);
+
+    layout->addWidget(m_previewCard);
+
+    m_previewError = new QLabel;
+    m_previewError->setObjectName(QStringLiteral("FieldLabel"));
+    m_previewError->setStyleSheet(QStringLiteral("color:#F87171; font-size:12.5px;"));
+    m_previewError->setVisible(false);
+    m_previewError->setWordWrap(true);
+    layout->addWidget(m_previewError);
+
     layout->addStretch(1);
 
     connect(pasteBtn, &QPushButton::clicked, this, [this]() {
@@ -489,66 +498,10 @@ QWidget *MainWindow::buildRightPane()
     layout->setContentsMargins(20, 60, 20, 20);
     layout->setSpacing(0);
 
-    auto *activeHeader = new QHBoxLayout;
-    auto *activeTitle = new QLabel(QStringLiteral("Đang tải (3)"));
-    activeTitle->setObjectName(QStringLiteral("PaneTitle"));
-    auto *pauseAllBtn = new QPushButton(QStringLiteral("Tạm dừng tất cả"));
-    pauseAllBtn->setObjectName(QStringLiteral("PaneLinkButton"));
-    pauseAllBtn->setCursor(Qt::PointingHandCursor);
-    activeHeader->addWidget(activeTitle);
-    activeHeader->addStretch(1);
-    activeHeader->addWidget(pauseAllBtn);
-    layout->addLayout(activeHeader);
-    layout->addSpacing(12);
-
-    m_activeListLayout = new QVBoxLayout;
-    m_activeListLayout->setSpacing(10);
-    layout->addLayout(m_activeListLayout);
-
-    struct DemoJob { QString title; QString meta; int percent; QString speed; QString eta; };
-    const QList<DemoJob> demoActive = {
-        {QStringLiteral("Cinematic Nature 4K"), QStringLiteral("1080p • MP4 • 120.5 MB"), 68, QStringLiteral("8.4 MB/s"), QStringLiteral("Còn 12 giây")},
-        {QStringLiteral("Tokyo Night Walk"), QStringLiteral("1080p • MP4 • 85.3 MB"), 45, QStringLiteral("6.1 MB/s"), QStringLiteral("Còn 8 giây")},
-        {QStringLiteral("iPhone 15 Pro Review"), QStringLiteral("720p • MP4 • 60.7 MB"), 30, QStringLiteral("4.3 MB/s"), QStringLiteral("Còn 10 giây")},
-    };
-
-    for (const auto &job : demoActive) {
-        auto *card = new QFrame;
-        card->setObjectName(QStringLiteral("JobCard"));
-        auto *cardLayout = new QVBoxLayout(card);
-        cardLayout->setContentsMargins(12, 12, 12, 12);
-        cardLayout->setSpacing(6);
-
-        auto *titleLabel = new QLabel(job.title);
-        titleLabel->setObjectName(QStringLiteral("JobTitle"));
-        auto *metaLabel = new QLabel(job.meta);
-        metaLabel->setObjectName(QStringLiteral("JobMeta"));
-
-        auto *progress = new QProgressBar;
-        progress->setObjectName(QStringLiteral("JobProgress"));
-        progress->setRange(0, 100);
-        progress->setValue(job.percent);
-        progress->setTextVisible(false);
-
-        auto *bottomRow = new QHBoxLayout;
-        auto *percentLabel = new QLabel(QStringLiteral("%1%").arg(job.percent));
-        percentLabel->setObjectName(QStringLiteral("JobMeta"));
-        auto *speedLabel = new QLabel(QStringLiteral("%1 • %2").arg(job.speed, job.eta));
-        speedLabel->setObjectName(QStringLiteral("JobMeta"));
-        bottomRow->addWidget(percentLabel);
-        bottomRow->addStretch(1);
-        bottomRow->addWidget(speedLabel);
-
-        cardLayout->addWidget(titleLabel);
-        cardLayout->addWidget(metaLabel);
-        cardLayout->addWidget(progress);
-        cardLayout->addLayout(bottomRow);
-
-        m_activeListLayout->addWidget(card);
-    }
-
-    layout->addSpacing(24);
-
+    // "Đang tải" (in-progress) used to live here as a hardcoded demo list
+    // with no connection to DownloadService's real progress signals. It's
+    // gone until real progress wiring lands -- showing fake percentages
+    // next to a real download queue was actively misleading.
     auto *doneHeader = new QHBoxLayout;
     auto *doneTitle = new QLabel(QStringLiteral("Đã hoàn thành (12)"));
     doneTitle->setObjectName(QStringLiteral("PaneTitle"));

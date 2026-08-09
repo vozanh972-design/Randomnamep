@@ -51,7 +51,6 @@ private:
     QComboBox *m_formatCombo = nullptr;
     QComboBox *m_qualityCombo = nullptr;
     QLineEdit *m_folderField = nullptr;
-    QVBoxLayout *m_activeListLayout = nullptr;
     QVBoxLayout *m_completedListLayout = nullptr;
 
     // "Phân tích" (analyze) preview: shows title/channel/upload
