@@ -1,5 +1,4 @@
 #include "MainWindow.h"
-#include "TitleBar.h"
 #include "../services/AppConfig.h"
 
 #include <QVBoxLayout>
@@ -13,16 +12,12 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QSvgWidget>
-#include <QGraphicsDropShadowEffect>
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QApplication>
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QUrl>
-#include <QColor>
-#include <QResizeEvent>
-#include <QGraphicsEffect>
 #include <QIcon>
 #include <QButtonGroup>
 #include <QNetworkAccessManager>
@@ -47,41 +42,24 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
     , m_downloadService(new DownloadService(this))
     , m_thumbNetwork(new QNetworkAccessManager(this))
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
-    setAttribute(Qt::WA_TranslucentBackground);
+    // Native window chrome (default Windows title bar with its own
+    // minimize/maximize/close) instead of a frameless window with a
+    // hand-drawn titlebar. The old Qt::FramelessWindowHint +
+    // WA_TranslucentBackground combination was also what caused the
+    // "two overlapping UIs" glitch: on some Windows/DWM configurations a
+    // translucent frameless top-level widget composites its own rounded
+    // card on top of a residual native frame instead of replacing it.
     resize(1600, 980);
     setMinimumSize(1200, 760);
+    setWindowTitle(QStringLiteral("Lunex ReDown"));
+    setObjectName(QStringLiteral("MainRoot"));
 
-    auto *outer = new QVBoxLayout(this);
-    outer->setContentsMargins(24, 24, 24, 24);
-
-    m_root = new QFrame(this);
-    QFrame *root = m_root;
-    root->setObjectName(QStringLiteral("MainRoot"));
-    auto *shadow = new QGraphicsDropShadowEffect(root);
-    shadow->setBlurRadius(48);
-    shadow->setOffset(0, 12);
-    shadow->setColor(QColor(0, 0, 0, 90));
-    root->setGraphicsEffect(shadow);
-
-    auto *rootLayout = new QHBoxLayout(root);
+    auto *rootLayout = new QHBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
     rootLayout->addWidget(buildSidebar());
     rootLayout->addWidget(buildContent(), 1);
-
-    m_titleBar = new TitleBar(root);
-    m_titleBar->setParent(root);
-    m_titleBar->raise();
-    m_titleBar->move(root->width() - m_titleBar->width(), 0);
-    connect(m_titleBar, &TitleBar::minimizeClicked, this, &QWidget::showMinimized);
-    connect(m_titleBar, &TitleBar::closeClicked, this, &QWidget::close);
-    connect(m_titleBar, &TitleBar::maximizeClicked, this, [this]() {
-        isMaximized() ? showNormal() : showMaximized();
-    });
-
-    outer->addWidget(root);
 
     connect(m_downloadService, &DownloadService::jobFailed, this, [](const QString &, const QString &msg) {
         // Kept intentionally simple: a production build would surface this
@@ -91,31 +69,6 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
 
     connect(m_downloadService, &DownloadService::videoInfoReady, this, &MainWindow::showVideoInfo);
     connect(m_downloadService, &DownloadService::videoInfoFailed, this, &MainWindow::showAnalyzeError);
-}
-
-void MainWindow::resizeEvent(QResizeEvent *event)
-{
-    QWidget::resizeEvent(event);
-
-    // Keep the min/max/close cluster pinned to the true top-right corner on
-    // every resize (drag-resize, maximize, restore, DPI change) instead of
-    // the one-shot position computed at construction time.
-    if (m_titleBar && m_root) {
-        m_titleBar->move(m_root->width() - m_titleBar->width(), 0);
-    }
-
-    // Maximized -> fill the whole screen edge-to-edge (drop the floating
-    // card's outer margin + shadow); windowed -> restore the card look.
-    if (auto *outer = qobject_cast<QVBoxLayout *>(layout())) {
-        const bool maximized = isMaximized();
-        outer->setContentsMargins(maximized ? 0 : 24, maximized ? 0 : 24,
-                                   maximized ? 0 : 24, maximized ? 0 : 24);
-    }
-    if (m_root) {
-        if (auto *shadow = m_root->graphicsEffect()) {
-            shadow->setEnabled(!isMaximized());
-        }
-    }
 }
 
 QPushButton *MainWindow::makeNavButton(const QString &iconPath, const QString &text, const QString &badge)
@@ -173,31 +126,26 @@ QWidget *MainWindow::buildSidebar()
     layout->addLayout(logoRow);
     layout->addSpacing(28);
 
-    // "Đang tải" used to be its own nav destination backed by a fake demo
-    // list in the right pane. That list never reflected real download
-    // state, so it's gone now -- completed downloads still get a home
-    // below ("Đã hoàn thành"), and in-progress state belongs on the job
-    // itself once real progress wiring lands, not a separate page.
+    // "Đã hoàn thành" (completed) used to have its own nav entry with a
+    // hardcoded "12" badge that never reflected real state. Removed --
+    // finished downloads belong in "Lịch sử" once that view is wired up,
+    // not as a separate always-visible counter.
     auto *navHome = makeNavButton(QStringLiteral(":/icons/download-arrow.svg"), QStringLiteral("Tải Video"));
     navHome->setChecked(true);
     auto *navEditor = makeNavButton(QStringLiteral(":/icons/film-edit.svg"), QStringLiteral("Trình chỉnh sửa"));
-    auto *navDone = makeNavButton(QStringLiteral(":/icons/check-circle.svg"), QStringLiteral("Đã hoàn thành"), QStringLiteral("12"));
     auto *navHistory = makeNavButton(QStringLiteral(":/icons/globe.svg"), QStringLiteral("Lịch sử"));
     auto *navTools = makeNavButton(QStringLiteral(":/icons/zap.svg"), QStringLiteral("Công cụ"));
     auto *navSettings = makeNavButton(QStringLiteral(":/icons/lock.svg"), QStringLiteral("Cài đặt"));
 
-    for (auto *btn : { navHome, navEditor, navDone, navHistory, navTools, navSettings }) {
+    for (auto *btn : { navHome, navEditor, navHistory, navTools, navSettings }) {
         layout->addWidget(btn);
         layout->addSpacing(4);
     }
 
     // Exclusive selection: clicking one nav item unchecks every other one.
-    // Previously each QPushButton was independently checkable, so several
-    // could end up highlighted at once (e.g. "Tải Video" + "Trình chỉnh
-    // sửa" both active in the screenshot).
     auto *navGroup = new QButtonGroup(sidebar);
     navGroup->setExclusive(true);
-    for (auto *btn : { navHome, navEditor, navDone, navHistory, navTools, navSettings }) {
+    for (auto *btn : { navHome, navEditor, navHistory, navTools, navSettings }) {
         navGroup->addButton(btn);
     }
 
@@ -288,13 +236,13 @@ QWidget *MainWindow::makePlatformIcon(const QString &iconPath, const QString &la
 {
     auto *badge = new QLabel;
     badge->setObjectName(QStringLiteral("PlatformIcon"));
-    badge->setFixedSize(28, 28);
+    badge->setFixedSize(24, 24);
     badge->setAlignment(Qt::AlignCenter);
     badge->setToolTip(label);
-    badge->setStyleSheet(QStringLiteral("background:%1; border-radius:14px; color:#FFFFFF; font-size:10px; font-weight:700;").arg(bgColor));
+    badge->setStyleSheet(QStringLiteral("background:%1; border-radius:12px; color:#FFFFFF; font-size:9.5px; font-weight:700;").arg(bgColor));
 
     if (!iconPath.isEmpty()) {
-        badge->setPixmap(QIcon(iconPath).pixmap(14, 14));
+        badge->setPixmap(QIcon(iconPath).pixmap(12, 12));
     } else {
         QString monogram = label.left(2).toUpper();
         if (label == QStringLiteral("Twitter")) {
@@ -361,14 +309,19 @@ QWidget *MainWindow::buildContent()
     layout->addLayout(urlRow);
     layout->addSpacing(28);
 
-    // Compact single-line "supported platforms" strip (small round badges,
-    // no per-platform text tiles) instead of the old row of six large
-    // labeled cards -- same information, a fraction of the height.
+    // Compact single-line "supported platforms" strip, styled after the
+    // reference: a plain row (no boxed card) with a small live-status dot,
+    // round platform badges, and a trailing "+1000 websites" note.
     auto *platformBar = new QFrame;
     platformBar->setObjectName(QStringLiteral("PlatformBar"));
     auto *platformLayout = new QHBoxLayout(platformBar);
-    platformLayout->setContentsMargins(14, 10, 14, 10);
-    platformLayout->setSpacing(8);
+    platformLayout->setContentsMargins(2, 0, 2, 0);
+    platformLayout->setSpacing(10);
+
+    auto *statusDot = new QLabel;
+    statusDot->setObjectName(QStringLiteral("PlatformStatusDot"));
+    statusDot->setFixedSize(8, 8);
+    platformLayout->addWidget(statusDot);
 
     auto *supportLabel = new QLabel(QStringLiteral("Hỗ trợ:"));
     supportLabel->setObjectName(QStringLiteral("PlatformBarLabel"));

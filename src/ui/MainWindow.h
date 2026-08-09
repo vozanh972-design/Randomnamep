@@ -12,7 +12,6 @@ class QComboBox;
 class QFrame;
 class QResizeEvent;
 class QNetworkAccessManager;
-class TitleBar;
 struct VideoInfo;
 
 // Main application shell shown once a valid license is active.
@@ -25,9 +24,6 @@ class MainWindow : public QWidget
 
 public:
     explicit MainWindow(LicenseService *licenseService, QWidget *parent = nullptr);
-
-protected:
-    void resizeEvent(QResizeEvent *event) override;
 
 private:
     QWidget *buildSidebar();
@@ -43,8 +39,6 @@ private:
     LicenseService *m_licenseService;
     DownloadService *m_downloadService;
 
-    QFrame *m_root = nullptr;
-    TitleBar *m_titleBar = nullptr;
     QLineEdit *m_urlInput = nullptr;
     QComboBox *m_resolutionCombo = nullptr;
     QComboBox *m_formatCombo = nullptr;

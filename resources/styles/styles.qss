@@ -17,28 +17,6 @@
     font-family: "Inter", "Segoe UI", sans-serif;
 }
 
-/* ---------- Title bar (frameless custom chrome) ---------- */
-
-#TitleBar {
-    background: transparent;
-}
-
-#TitleBarMinBtn, #TitleBarMaxBtn, #TitleBarCloseBtn {
-    background: transparent;
-    border: none;
-    color: #6B7280;
-    font-size: 15px;
-}
-
-#TitleBarMinBtn:hover, #TitleBarMaxBtn:hover {
-    background: rgba(17, 24, 39, 0.06);
-}
-
-#TitleBarCloseBtn:hover {
-    background: #DC2626;
-    color: #FFFFFF;
-}
-
 /* ---------- Activation window ---------- */
 
 #ActivationRoot {
@@ -232,10 +210,11 @@
 }
 
 /* ---------- Main window ---------- */
-
+/* Plain rectangular background now that the window uses the native
+   Windows title bar (no more rounded floating-card look, which only
+   made sense for the old frameless/translucent window). */
 #MainRoot {
     background: #0B1120;
-    border-radius: 16px;
 }
 
 #MainSidebar {
@@ -386,12 +365,16 @@
     font-weight: 600;
 }
 
-/* Compact "supported platforms" strip: one slim row instead of a grid of
-   full-size labeled tiles. */
+/* Compact "supported platforms" strip: a plain inline row (no boxed
+   card) sitting directly under the URL bar, matching the reference. */
 #PlatformBar {
-    background: #12192B;
-    border: 1px solid #1F2937;
-    border-radius: 12px;
+    background: transparent;
+    border: none;
+}
+
+#PlatformStatusDot {
+    background: #22C55E;
+    border-radius: 4px;
 }
 
 #PlatformBarLabel {
