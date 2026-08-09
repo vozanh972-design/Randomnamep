@@ -12,6 +12,7 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QSvgWidget>
+#include <QProgressBar>
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QApplication>
@@ -20,6 +21,8 @@
 #include <QUrl>
 #include <QIcon>
 #include <QButtonGroup>
+#include <QFontMetrics>
+#include <QStyle>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -61,10 +64,15 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
     rootLayout->addWidget(buildSidebar());
     rootLayout->addWidget(buildContent(), 1);
 
-    connect(m_downloadService, &DownloadService::jobFailed, this, [](const QString &, const QString &msg) {
-        // Kept intentionally simple: a production build would surface this
-        // as an inline toast on the relevant job card rather than a dialog.
-        Q_UNUSED(msg);
+    connect(m_downloadService, &DownloadService::jobFailed, this, [this](const QString &id, const QString &msg) {
+        markQueueFailed(id, msg);
+    });
+    connect(m_downloadService, &DownloadService::progressChanged, this,
+            [this](const QString &id, int percent, const QString &speed, const QString &eta) {
+        updateQueueProgress(id, percent, speed, eta);
+    });
+    connect(m_downloadService, &DownloadService::jobCompleted, this, [this](const QString &id, const QString &) {
+        markQueueCompleted(id);
     });
 
     connect(m_downloadService, &DownloadService::videoInfoReady, this, &MainWindow::showVideoInfo);
@@ -449,7 +457,9 @@ QWidget *MainWindow::buildContent()
     m_previewError->setVisible(false);
     m_previewError->setWordWrap(true);
     layout->addWidget(m_previewError);
+    layout->addSpacing(20);
 
+    layout->addWidget(buildQueueSection());
     layout->addStretch(1);
 
     connect(pasteBtn, &QPushButton::clicked, this, [this]() {
@@ -479,10 +489,18 @@ void MainWindow::startDownload()
         ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
         : m_folderField->text().trimmed();
 
-    m_downloadService->startDownload(url,
-                                      m_resolutionCombo->currentText(),
-                                      m_formatCombo->currentText(),
-                                      outputDir);
+    const QString resolution = m_resolutionCombo->currentText();
+    const QString format = m_formatCombo->currentText();
+
+    const QString id = m_downloadService->startDownload(url, resolution, format, outputDir);
+
+    // Reuse whatever the preview card already knows (title + thumbnail from
+    // the "Phân tích" step) so the new queue row isn't just a bare URL.
+    const QString title = m_previewTitle->text().isEmpty() ? url : m_previewTitle->text();
+    const QString meta = QStringLiteral("%1 • %2").arg(resolution, format);
+    QPixmap thumb = m_previewThumb->pixmap();
+    addQueueRow(id, title, meta, thumb);
+
     m_urlInput->clear();
     m_previewCard->setVisible(false);
 }
@@ -560,4 +578,182 @@ void MainWindow::showAnalyzeError(const QString &message)
     m_previewCard->setVisible(false);
     m_previewError->setText(message);
     m_previewError->setVisible(true);
+}
+
+// ---------------------------------------------------------------------
+// Download queue: a live table of jobs below the options card (mirrors
+// the reference layout's "Download Queue" list) instead of leaving that
+// space empty. Rows are added when a download starts and updated in
+// place from DownloadService's progress/completion/failure signals.
+// ---------------------------------------------------------------------
+
+QWidget *MainWindow::buildQueueSection()
+{
+    m_queueCard = new QFrame;
+    m_queueCard->setObjectName(QStringLiteral("OptionsCard"));
+    auto *cardLayout = new QVBoxLayout(m_queueCard);
+    cardLayout->setContentsMargins(20, 16, 20, 16);
+    cardLayout->setSpacing(10);
+
+    auto *headerRow = new QHBoxLayout;
+    auto *headerTitle = new QLabel(QStringLiteral("Hàng đợi tải xuống"));
+    headerTitle->setObjectName(QStringLiteral("SectionLabel"));
+    headerRow->addWidget(headerTitle);
+    headerRow->addStretch(1);
+    cardLayout->addLayout(headerRow);
+
+    m_queueEmptyLabel = new QLabel(QStringLiteral("Chưa có video nào đang tải. Dán liên kết và bấm \"Tải xuống\" để bắt đầu."));
+    m_queueEmptyLabel->setObjectName(QStringLiteral("FieldLabel"));
+    m_queueEmptyLabel->setWordWrap(true);
+    cardLayout->addWidget(m_queueEmptyLabel);
+
+    auto *listContainer = new QWidget;
+    m_queueListLayout = new QVBoxLayout(listContainer);
+    m_queueListLayout->setContentsMargins(0, 0, 0, 0);
+    m_queueListLayout->setSpacing(8);
+    cardLayout->addWidget(listContainer);
+
+    return m_queueCard;
+}
+
+void MainWindow::updateQueueEmptyState()
+{
+    if (m_queueEmptyLabel) {
+        m_queueEmptyLabel->setVisible(m_queueRows.isEmpty());
+    }
+}
+
+void MainWindow::addQueueRow(const QString &id, const QString &title, const QString &meta, const QPixmap &thumb)
+{
+    auto *row = new QFrame;
+    row->setObjectName(QStringLiteral("QueueRow"));
+    auto *rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(10, 10, 10, 10);
+    rowLayout->setSpacing(14);
+
+    auto *thumbLabel = new QLabel;
+    thumbLabel->setFixedSize(56, 40);
+    thumbLabel->setScaledContents(true);
+    thumbLabel->setStyleSheet(QStringLiteral("background:#0B111F; border-radius:6px;"));
+    if (!thumb.isNull()) {
+        thumbLabel->setPixmap(thumb);
+    }
+    rowLayout->addWidget(thumbLabel);
+
+    auto *textCol = new QVBoxLayout;
+    textCol->setSpacing(2);
+    auto *titleLabel = new QLabel(title);
+    titleLabel->setObjectName(QStringLiteral("JobTitle"));
+    titleLabel->setWordWrap(false);
+    QFontMetrics fm(titleLabel->font());
+    titleLabel->setText(fm.elidedText(title, Qt::ElideRight, 260));
+    auto *metaLabel = new QLabel(meta);
+    metaLabel->setObjectName(QStringLiteral("FieldLabel"));
+    textCol->addWidget(titleLabel);
+    textCol->addWidget(metaLabel);
+    rowLayout->addLayout(textCol, 2);
+
+    auto *progressBar = new QProgressBar;
+    progressBar->setObjectName(QStringLiteral("QueueProgressBar"));
+    progressBar->setRange(0, 100);
+    progressBar->setValue(0);
+    progressBar->setTextVisible(false);
+    progressBar->setFixedHeight(6);
+    rowLayout->addWidget(progressBar, 3);
+
+    auto *speedLabel = new QLabel(QStringLiteral("--"));
+    speedLabel->setObjectName(QStringLiteral("FieldLabel"));
+    speedLabel->setFixedWidth(70);
+    rowLayout->addWidget(speedLabel);
+
+    auto *statusLabel = new QLabel(QStringLiteral("Đang tải"));
+    statusLabel->setObjectName(QStringLiteral("QueueStatusDownloading"));
+    statusLabel->setFixedWidth(80);
+    rowLayout->addWidget(statusLabel);
+
+    auto *cancelBtn = new QPushButton;
+    cancelBtn->setObjectName(QStringLiteral("QueueCancelBtn"));
+    cancelBtn->setCursor(Qt::PointingHandCursor);
+    cancelBtn->setIcon(QIcon(QStringLiteral(":/icons/alert-circle.svg")));
+    cancelBtn->setToolTip(QStringLiteral("Hủy"));
+    cancelBtn->setFixedSize(28, 28);
+    connect(cancelBtn, &QPushButton::clicked, this, [this, id]() {
+        m_downloadService->cancelDownload(id);
+        removeQueueRow(id);
+    });
+    rowLayout->addWidget(cancelBtn);
+
+    m_queueListLayout->addWidget(row);
+
+    QueueRowWidgets widgets;
+    widgets.row = row;
+    widgets.thumb = thumbLabel;
+    widgets.titleLabel = titleLabel;
+    widgets.metaLabel = metaLabel;
+    widgets.progressBar = progressBar;
+    widgets.speedLabel = speedLabel;
+    widgets.statusLabel = statusLabel;
+    widgets.cancelBtn = cancelBtn;
+    m_queueRows.insert(id, widgets);
+
+    updateQueueEmptyState();
+}
+
+void MainWindow::updateQueueProgress(const QString &id, int percent, const QString &speed, const QString &eta)
+{
+    const auto it = m_queueRows.constFind(id);
+    if (it == m_queueRows.constEnd()) {
+        return;
+    }
+    const QueueRowWidgets &w = it.value();
+    w.progressBar->setValue(percent);
+    w.speedLabel->setText(speed.isEmpty() ? QStringLiteral("--") : speed);
+    w.statusLabel->setText(eta.isEmpty()
+        ? QStringLiteral("Đang tải")
+        : QStringLiteral("Còn %1").arg(eta));
+}
+
+void MainWindow::markQueueCompleted(const QString &id)
+{
+    const auto it = m_queueRows.constFind(id);
+    if (it == m_queueRows.constEnd()) {
+        return;
+    }
+    const QueueRowWidgets &w = it.value();
+    w.progressBar->setValue(100);
+    w.speedLabel->setText(QStringLiteral("--"));
+    w.statusLabel->setObjectName(QStringLiteral("QueueStatusDone"));
+    w.statusLabel->setText(QStringLiteral("Hoàn thành"));
+    w.statusLabel->style()->unpolish(w.statusLabel);
+    w.statusLabel->style()->polish(w.statusLabel);
+    w.cancelBtn->setEnabled(false);
+    w.cancelBtn->setVisible(false);
+}
+
+void MainWindow::markQueueFailed(const QString &id, const QString &message)
+{
+    const auto it = m_queueRows.constFind(id);
+    if (it == m_queueRows.constEnd()) {
+        return;
+    }
+    const QueueRowWidgets &w = it.value();
+    w.statusLabel->setObjectName(QStringLiteral("QueueStatusError"));
+    w.statusLabel->setText(QStringLiteral("Lỗi"));
+    w.statusLabel->setToolTip(message);
+    w.statusLabel->style()->unpolish(w.statusLabel);
+    w.statusLabel->style()->polish(w.statusLabel);
+    w.speedLabel->setText(QStringLiteral("--"));
+    w.cancelBtn->setEnabled(false);
+    w.cancelBtn->setVisible(false);
+}
+
+void MainWindow::removeQueueRow(const QString &id)
+{
+    const auto it = m_queueRows.constFind(id);
+    if (it == m_queueRows.constEnd()) {
+        return;
+    }
+    it.value().row->deleteLater();
+    m_queueRows.remove(id);
+    updateQueueEmptyState();
 }

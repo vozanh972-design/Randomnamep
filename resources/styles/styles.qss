@@ -457,6 +457,61 @@
     padding: 4px;
 }
 
+/* ---------- Download queue rows ---------- */
+
+#QueueRow {
+    background: #0F1626;
+    border: 1px solid #1F2937;
+    border-radius: 10px;
+}
+
+#JobTitle {
+    color: #F3F4F6;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#QueueProgressBar {
+    background: #1E2538;
+    border: none;
+    border-radius: 3px;
+}
+
+#QueueProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                 stop:0 #4F46E5, stop:1 #6366F1);
+    border-radius: 3px;
+}
+
+#QueueStatusDownloading {
+    color: #A5B4FC;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#QueueStatusDone {
+    color: #4ADE80;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#QueueStatusError {
+    color: #F87171;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#QueueCancelBtn {
+    background: transparent;
+    border: 1px solid #2A3348;
+    border-radius: 8px;
+}
+
+#QueueCancelBtn:hover {
+    background: #2A1418;
+    border-color: #DC2626;
+}
+
 /* ---------- Checkboxes ----------
    Left unstyled before, these fell back to the OS's default light-theme
    checkbox: a plain white square that clashed with the dark UI. Draw our
