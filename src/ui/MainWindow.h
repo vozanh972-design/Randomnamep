@@ -32,9 +32,8 @@ protected:
 private:
     QWidget *buildSidebar();
     QWidget *buildContent();
-    QWidget *buildRightPane();
     QPushButton *makeNavButton(const QString &iconPath, const QString &text, const QString &badge = QString());
-    QWidget *makePlatformChip(const QString &iconPath, const QString &label);
+    QWidget *makePlatformIcon(const QString &iconPath, const QString &label, const QString &bgColor);
 
     void startDownload();
     void analyzeLink();
@@ -51,16 +50,20 @@ private:
     QComboBox *m_formatCombo = nullptr;
     QComboBox *m_qualityCombo = nullptr;
     QLineEdit *m_folderField = nullptr;
-    QVBoxLayout *m_completedListLayout = nullptr;
 
     // "Phân tích" (analyze) preview: shows title/channel/upload
     // date/duration/thumbnail for the pasted link before downloading.
-    // Works for any yt-dlp-supported site, not just YouTube.
+    // Works for any yt-dlp-supported site, not just YouTube. The actual
+    // "Tải xuống" action now lives on this card (see m_previewDownloadButton)
+    // instead of as a separate always-visible button on the page -- there's
+    // nothing to download until a link has been analyzed, so the button
+    // only appears once there is.
     QPushButton *m_analyzeButton = nullptr;
     QFrame *m_previewCard = nullptr;
     QLabel *m_previewThumb = nullptr;
     QLabel *m_previewTitle = nullptr;
     QLabel *m_previewMeta = nullptr;
+    QPushButton *m_previewDownloadButton = nullptr;
     QLabel *m_previewError = nullptr;
     QNetworkAccessManager *m_thumbNetwork = nullptr;
 };

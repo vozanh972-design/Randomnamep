@@ -70,7 +70,6 @@ MainWindow::MainWindow(LicenseService *licenseService, QWidget *parent)
 
     rootLayout->addWidget(buildSidebar());
     rootLayout->addWidget(buildContent(), 1);
-    rootLayout->addWidget(buildRightPane());
 
     m_titleBar = new TitleBar(root);
     m_titleBar->setParent(root);
@@ -281,24 +280,29 @@ QWidget *MainWindow::buildSidebar()
     return sidebar;
 }
 
-QWidget *MainWindow::makePlatformChip(const QString &iconPath, const QString &label)
+// Small round badge used in the compact "Hỗ trợ" strip. Platforms that
+// ship a real logo asset (YouTube, Facebook) show it; the rest fall back
+// to a two-letter monogram on a brand-ish background so the strip stays a
+// single tidy row instead of the old full-size labeled tiles.
+QWidget *MainWindow::makePlatformIcon(const QString &iconPath, const QString &label, const QString &bgColor)
 {
-    auto *chip = new QFrame;
-    chip->setObjectName(QStringLiteral("PlatformChip"));
-    chip->setFixedSize(96, 74);
-    auto *layout = new QVBoxLayout(chip);
-    layout->setAlignment(Qt::AlignCenter);
-    layout->setSpacing(6);
+    auto *badge = new QLabel;
+    badge->setObjectName(QStringLiteral("PlatformIcon"));
+    badge->setFixedSize(28, 28);
+    badge->setAlignment(Qt::AlignCenter);
+    badge->setToolTip(label);
+    badge->setStyleSheet(QStringLiteral("background:%1; border-radius:14px; color:#FFFFFF; font-size:10px; font-weight:700;").arg(bgColor));
+
     if (!iconPath.isEmpty()) {
-        auto *icon = makeIcon(iconPath, 22);
-        icon->setAlignment(Qt::AlignCenter);
-        layout->addWidget(icon, 0, Qt::AlignHCenter);
+        badge->setPixmap(QIcon(iconPath).pixmap(14, 14));
+    } else {
+        QString monogram = label.left(2).toUpper();
+        if (label == QStringLiteral("Twitter")) {
+            monogram = QStringLiteral("X");
+        }
+        badge->setText(monogram);
     }
-    auto *text = new QLabel(label);
-    text->setAlignment(Qt::AlignCenter);
-    text->setStyleSheet(QStringLiteral("color:#D1D5DB; font-size:11.5px;"));
-    layout->addWidget(text);
-    return chip;
+    return badge;
 }
 
 QWidget *MainWindow::buildContent()
@@ -310,7 +314,16 @@ QWidget *MainWindow::buildContent()
 
     auto *content = new QWidget;
     content->setStyleSheet(QStringLiteral("background: transparent;"));
-    auto *layout = new QVBoxLayout(content);
+    auto *outerLayout = new QHBoxLayout(content);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+
+    // With the right-hand "Đã hoàn thành" pane gone, the content area is
+    // the only thing left of the sidebar and would otherwise stretch edge
+    // to edge on a wide window. Cap it to a comfortable reading width and
+    // let it hug the left side instead, the way the reference layout does.
+    auto *column = new QWidget;
+    column->setMaximumWidth(860);
+    auto *layout = new QVBoxLayout(column);
     layout->setContentsMargins(36, 60, 36, 36);
     layout->setSpacing(0);
 
@@ -348,22 +361,32 @@ QWidget *MainWindow::buildContent()
     layout->addLayout(urlRow);
     layout->addSpacing(28);
 
-    auto *platformsLabel = new QLabel(QStringLiteral("Hỗ trợ các nền tảng phổ biến"));
-    platformsLabel->setObjectName(QStringLiteral("SectionLabel"));
-    layout->addWidget(platformsLabel);
-    layout->addSpacing(12);
+    // Compact single-line "supported platforms" strip (small round badges,
+    // no per-platform text tiles) instead of the old row of six large
+    // labeled cards -- same information, a fraction of the height.
+    auto *platformBar = new QFrame;
+    platformBar->setObjectName(QStringLiteral("PlatformBar"));
+    auto *platformLayout = new QHBoxLayout(platformBar);
+    platformLayout->setContentsMargins(14, 10, 14, 10);
+    platformLayout->setSpacing(8);
 
-    auto *chipsRow = new QHBoxLayout;
-    chipsRow->setSpacing(12);
-    chipsRow->addWidget(makePlatformChip(QStringLiteral(":/images/youtube-logo.png"), QStringLiteral("YouTube")));
-    chipsRow->addWidget(makePlatformChip(QStringLiteral(":/images/facebook-logo.png"), QStringLiteral("Facebook")));
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("TikTok")));
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Instagram")));
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Twitter")));
-    chipsRow->addWidget(makePlatformChip(QString(), QStringLiteral("Khác")));
-    chipsRow->addStretch(1);
-    layout->addLayout(chipsRow);
-    layout->addSpacing(28);
+    auto *supportLabel = new QLabel(QStringLiteral("Hỗ trợ:"));
+    supportLabel->setObjectName(QStringLiteral("PlatformBarLabel"));
+    platformLayout->addWidget(supportLabel);
+
+    platformLayout->addWidget(makePlatformIcon(QStringLiteral(":/images/youtube-logo.png"), QStringLiteral("YouTube"), QStringLiteral("#FF0000")));
+    platformLayout->addWidget(makePlatformIcon(QStringLiteral(":/images/facebook-logo.png"), QStringLiteral("Facebook"), QStringLiteral("#1877F2")));
+    platformLayout->addWidget(makePlatformIcon(QString(), QStringLiteral("TikTok"), QStringLiteral("#111827")));
+    platformLayout->addWidget(makePlatformIcon(QString(), QStringLiteral("Instagram"), QStringLiteral("#C13584")));
+    platformLayout->addWidget(makePlatformIcon(QString(), QStringLiteral("Twitter"), QStringLiteral("#000000")));
+
+    auto *moreLabel = new QLabel(QStringLiteral("và hơn 1000+ website khác"));
+    moreLabel->setObjectName(QStringLiteral("PlatformBarMore"));
+    platformLayout->addWidget(moreLabel);
+    platformLayout->addStretch(1);
+
+    layout->addWidget(platformBar);
+    layout->addSpacing(24);
 
     auto *optionsLabel = new QLabel(QStringLiteral("Tùy chọn tải xuống"));
     optionsLabel->setObjectName(QStringLiteral("SectionLabel"));
@@ -426,18 +449,10 @@ QWidget *MainWindow::buildContent()
     layout->addWidget(optionsCard);
     layout->addSpacing(20);
 
-    auto *downloadBtn = new QPushButton(QStringLiteral("  Tải xuống"));
-    downloadBtn->setObjectName(QStringLiteral("DownloadButton"));
-    downloadBtn->setCursor(Qt::PointingHandCursor);
-    downloadBtn->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
-    layout->addWidget(downloadBtn);
-    layout->addSpacing(20);
-
     // Preview card: filled in by analyzeLink() once yt-dlp reports the
-    // video's metadata. Hidden until there is something to show. Lives
-    // below the download button rather than above the URL bar, so the
-    // page reads top-to-bottom: paste link -> set options -> download ->
-    // see what you just analyzed/downloaded.
+    // video's metadata. Hidden until there is something to show, and
+    // carries its own "Tải xuống" button (below) since that's the only
+    // point in the page where there's actually something to download.
     m_previewCard = new QFrame;
     m_previewCard->setObjectName(QStringLiteral("OptionsCard"));
     m_previewCard->setVisible(false);
@@ -464,6 +479,15 @@ QWidget *MainWindow::buildContent()
     previewTextCol->addStretch(1);
     previewLayout->addLayout(previewTextCol, 1);
 
+    // Download only becomes an option once there's something analyzed to
+    // download -- so the button lives here, on the result, rather than as
+    // a big always-on button with nothing to act on yet.
+    m_previewDownloadButton = new QPushButton(QStringLiteral("  Tải xuống"));
+    m_previewDownloadButton->setObjectName(QStringLiteral("PreviewDownloadButton"));
+    m_previewDownloadButton->setCursor(Qt::PointingHandCursor);
+    m_previewDownloadButton->setIcon(QIcon(QStringLiteral(":/icons/download-arrow.svg")));
+    previewLayout->addWidget(m_previewDownloadButton, 0, Qt::AlignVCenter);
+
     layout->addWidget(m_previewCard);
 
     m_previewError = new QLabel;
@@ -479,80 +503,16 @@ QWidget *MainWindow::buildContent()
         m_urlInput->setText(QApplication::clipboard()->text());
     });
     connect(m_analyzeButton, &QPushButton::clicked, this, &MainWindow::analyzeLink);
-    connect(downloadBtn, &QPushButton::clicked, this, &MainWindow::startDownload);
+    connect(m_previewDownloadButton, &QPushButton::clicked, this, &MainWindow::startDownload);
     connect(m_folderField, &QLineEdit::returnPressed, this, [this]() {
         // no-op placeholder; a "..." browse button can call QFileDialog::getExistingDirectory
     });
 
+    outerLayout->addWidget(column);
+    outerLayout->addStretch(1);
+
     scroll->setWidget(content);
     return scroll;
-}
-
-QWidget *MainWindow::buildRightPane()
-{
-    auto *pane = new QFrame;
-    pane->setObjectName(QStringLiteral("RightPane"));
-    pane->setFixedWidth(360);
-
-    auto *layout = new QVBoxLayout(pane);
-    layout->setContentsMargins(20, 60, 20, 20);
-    layout->setSpacing(0);
-
-    // "Đang tải" (in-progress) used to live here as a hardcoded demo list
-    // with no connection to DownloadService's real progress signals. It's
-    // gone until real progress wiring lands -- showing fake percentages
-    // next to a real download queue was actively misleading.
-    auto *doneHeader = new QHBoxLayout;
-    auto *doneTitle = new QLabel(QStringLiteral("Đã hoàn thành (12)"));
-    doneTitle->setObjectName(QStringLiteral("PaneTitle"));
-    auto *clearAllBtn = new QPushButton(QStringLiteral("Xóa tất cả"));
-    clearAllBtn->setObjectName(QStringLiteral("PaneLinkButton"));
-    clearAllBtn->setCursor(Qt::PointingHandCursor);
-    doneHeader->addWidget(doneTitle);
-    doneHeader->addStretch(1);
-    doneHeader->addWidget(clearAllBtn);
-    layout->addLayout(doneHeader);
-    layout->addSpacing(12);
-
-    m_completedListLayout = new QVBoxLayout;
-    m_completedListLayout->setSpacing(8);
-    layout->addLayout(m_completedListLayout);
-
-    struct DoneJob { QString title; QString meta; };
-    const QList<DoneJob> demoDone = {
-        {QStringLiteral("Amazing Waterfalls 4K"), QStringLiteral("1080p • MP4 • 98.7 MB")},
-        {QStringLiteral("Best Music Mix 2024"), QStringLiteral("1080p • MP4 • 152.4 MB")},
-        {QStringLiteral("Cooking ASMR"), QStringLiteral("720p • MP4 • 45.2 MB")},
-        {QStringLiteral("Gaming Highlights"), QStringLiteral("1080p • MP4 • 78.9 MB")},
-    };
-
-    for (const auto &job : demoDone) {
-        auto *card = new QFrame;
-        card->setObjectName(QStringLiteral("JobCard"));
-        auto *cardLayout = new QHBoxLayout(card);
-        cardLayout->setContentsMargins(12, 10, 12, 10);
-
-        auto *textCol = new QVBoxLayout;
-        auto *titleLabel = new QLabel(job.title);
-        titleLabel->setObjectName(QStringLiteral("JobTitle"));
-        auto *metaLabel = new QLabel(job.meta);
-        metaLabel->setObjectName(QStringLiteral("JobMeta"));
-        textCol->addWidget(titleLabel);
-        textCol->addWidget(metaLabel);
-
-        cardLayout->addLayout(textCol, 1);
-        m_completedListLayout->addWidget(card);
-    }
-
-    auto *viewAllBtn = new QPushButton(QStringLiteral("Xem tất cả"));
-    viewAllBtn->setObjectName(QStringLiteral("PaneLinkButton"));
-    viewAllBtn->setCursor(Qt::PointingHandCursor);
-    layout->addSpacing(8);
-    layout->addWidget(viewAllBtn, 0, Qt::AlignHCenter);
-
-    layout->addStretch(1);
-
-    return pane;
 }
 
 void MainWindow::startDownload()
@@ -571,6 +531,7 @@ void MainWindow::startDownload()
                                       m_formatCombo->currentText(),
                                       outputDir);
     m_urlInput->clear();
+    m_previewCard->setVisible(false);
 }
 
 void MainWindow::analyzeLink()
